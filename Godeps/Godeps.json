@@ -1,0 +1,29 @@
+{
+	"ImportPath": "github.com/winston-ci/smith",
+	"GoVersion": "go1.2.1",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/fraenkel/candiedyaml",
+			"Rev": "84842532f8194fe186b48a009251dfaec9924ccd"
+		},
+		{
+			"ImportPath": "github.com/mgutz/ansi",
+			"Rev": "376eb392d7d7e2ae025da0037c73cf8c20a428d8"
+		},
+		{
+			"ImportPath": "github.com/onsi/ginkgo",
+			"Rev": "6d349e912f98605cd6b032a6e0a24c90c2d3bf47"
+		},
+		{
+			"ImportPath": "github.com/onsi/gomega",
+			"Rev": "af40dc423678b84288e18d0b993770cf9d599a68"
+		},
+		{
+			"ImportPath": "github.com/pivotal-golang/archiver/compressor",
+			"Rev": "384be1849829591a6f355be67f65e3a574206791"
+		}
+	]
+}
