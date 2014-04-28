@@ -1,4 +1,4 @@
-// Copyright 2013 Gary Burd. All rights reserved.
+// Copyright 2013 The Gorilla WebSocket Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var timeoutErrImplementsNetError net.Error = errWriteTimeout
+var _ net.Error = errWriteTimeout
 
 type fakeNetConn struct {
 	io.Reader
@@ -138,5 +138,15 @@ func TestReadLimit(t *testing.T) {
 	_, err = io.Copy(ioutil.Discard, r)
 	if err != ErrReadLimit {
 		t.Fatalf("io.Copy() returned %v", err)
+	}
+}
+
+func TestUnderlyingConn(t *testing.T) {
+	var b1, b2 bytes.Buffer
+	fc := fakeNetConn{Reader: &b1, Writer: &b2}
+	c := newConn(fc, true, 1024, 1024)
+	ul := c.UnderlyingConn()
+	if ul != fc {
+		t.Fatalf("Underlying conn is not what it should be.")
 	}
 }

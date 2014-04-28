@@ -1,4 +1,4 @@
-// Copyright 2013 Gary Burd. All rights reserved.
+// Copyright 2013 The Gorilla WebSocket Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -6,16 +6,18 @@
 //
 // Overview
 //
-// The Conn type represents a WebSocket connection. A server application calls
-// the Upgrade function from an HTTP request handler to get a pointer to a
-// Conn:
+// The Conn type represents a WebSocket connection. A server application uses
+// the Upgrade function from an Upgrader object with a HTTP request handler
+// to get a pointer to a Conn:
+//
+//  var upgrader = websocket.Upgrader{
+//      ReadBufferSize:  1024,
+//      WriteBufferSize: 1024,
+//  }
 //
 //  func handler(w http.ResponseWriter, r *http.Request) {
-//      conn, err := websocket.Upgrade(w, r, nil, 1024, 1024)
-//      if _, ok := err.(websocket.HandshakeError); ok {
-//          http.Error(w, "Not a websocket handshake", 400)
-//          return
-//      } else if err != nil {
+//      conn, err := upgrader.Upgrade(w, r, nil)
+//      if err != nil {
 //          log.Println(err)
 //          return
 //      }
