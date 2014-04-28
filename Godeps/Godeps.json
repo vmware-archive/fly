@@ -6,8 +6,29 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "code.google.com/p/gogoprotobuf/proto",
+			"Rev": "dc9b8350fb4568b6562900df872672f378242552"
+		},
+		{
+			"ImportPath": "code.google.com/p/goprotobuf/proto",
+			"Comment": "go.r60-136",
+			"Rev": "48b0cac3bc4a820ca87a28b44026c4166e3e1f07"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/loggregatorlib/logmessage",
+			"Rev": "90e9aee1f6ae4ba750c6656c3fb529bf217b4908"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/loggregatorlib/signature",
+			"Rev": "90e9aee1f6ae4ba750c6656c3fb529bf217b4908"
+		},
+		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",
 			"Rev": "84842532f8194fe186b48a009251dfaec9924ccd"
+		},
+		{
+			"ImportPath": "github.com/gorilla/websocket",
+			"Rev": "119002ce0495aa7a8f388544d740e1bdc8829513"
 		},
 		{
 			"ImportPath": "github.com/mgutz/ansi",
