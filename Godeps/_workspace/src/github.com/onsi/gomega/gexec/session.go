@@ -5,6 +5,7 @@ package gexec
 
 import (
 	"io"
+	"os"
 	"os/exec"
 	"reflect"
 	"sync"
@@ -13,6 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 )
+
+const INVALID_EXIT_CODE = 254
 
 type Session struct {
 	//The wrapped command
@@ -128,11 +131,68 @@ func (s *Session) Wait(timeout ...interface{}) *Session {
 	return s
 }
 
+/*
+Kill sends the running command a SIGKILL signal.  It does not wait for the process to exit.
+
+If the command has already exited, Kill returns silently.
+
+The session is returned to enable chaining.
+*/
+func (s *Session) Kill(timeout ...interface{}) *Session {
+	if s.ExitCode() != -1 {
+		return s
+	}
+	s.Command.Process.Kill()
+	return s
+}
+
+/*
+Interrupt sends the running command a SIGINT signal.  It does not wait for the process to exit.
+
+If the command has already exited, Interrupt returns silently.
+
+The session is returned to enable chaining.
+*/
+func (s *Session) Interrupt() *Session {
+	return s.Signal(syscall.SIGINT)
+}
+
+/*
+Terminate sends the running command a SIGTERM signal.  It does not wait for the process to exit.
+
+If the command has already exited, Terminate returns silently.
+
+The session is returned to enable chaining.
+*/
+func (s *Session) Terminate() *Session {
+	return s.Signal(syscall.SIGTERM)
+}
+
+/*
+Terminate sends the running command the passed in signal.  It does not wait for the process to exit.
+
+If the command has already exited, Signal returns silently.
+
+The session is returned to enable chaining.
+*/
+func (s *Session) Signal(signal os.Signal) *Session {
+	if s.ExitCode() != -1 {
+		return s
+	}
+	s.Command.Process.Signal(signal)
+	return s
+}
+
 func (s *Session) monitorForExit() {
-	s.Command.Wait()
+	err := s.Command.Wait()
 	s.lock.Lock()
 	s.exitCode = s.Command.ProcessState.Sys().(syscall.WaitStatus).ExitStatus()
 	s.Out.Close()
 	s.Err.Close()
+	if s.exitCode == -1 && err != nil {
+		//The process has exited, but probably received a signal.
+		//This returns an error to s.Command.Wait, but s.Command.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() returns -1
+		s.exitCode = INVALID_EXIT_CODE
+	}
 	s.lock.Unlock()
 }

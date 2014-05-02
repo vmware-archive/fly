@@ -6,6 +6,10 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/cheggaaa/pb",
+			"Rev": "a4339a42dc7ac74793debe4c726fcb47ec39bcc3"
+		},
+		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",
 			"Rev": "84842532f8194fe186b48a009251dfaec9924ccd"
 		},
@@ -19,11 +23,11 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "6d349e912f98605cd6b032a6e0a24c90c2d3bf47"
+			"Rev": "1e48048b2e01c7f1830144e30eea21db3cd3b574"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "af40dc423678b84288e18d0b993770cf9d599a68"
+			"Rev": "660b70079010c9eeeffdc381fcb3a8cde45ce495"
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/archiver/compressor",

@@ -2,10 +2,11 @@ package gexec_test
 
 import (
 	"bytes"
+	"os/exec"
+	"syscall"
+	"time"
 	. "github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gexec"
-	"os/exec"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -72,6 +73,50 @@ var _ = Describe("Session", func() {
 			Ω(session.ExitCode()).Should(Equal(-1))
 			Ω(session.Wait().ExitCode()).Should(BeNumerically(">=", 0))
 			Ω(session.Wait().ExitCode()).Should(BeNumerically("<", 3))
+		})
+	})
+
+	Describe("kill", func() {
+		It("should kill the command and wait for it to exit", func() {
+			session, err := Start(exec.Command("sleep", "10000000"), GinkgoWriter, GinkgoWriter)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			session.Kill()
+			Ω(session).ShouldNot(Exit(), "Should not exit immediately...")
+			Eventually(session).Should(Exit(INVALID_EXIT_CODE), "Go handles processes the exit with signals in a weird way.  It doesn't return a valid status code!")
+		})
+	})
+
+	Describe("interrupt", func() {
+		It("should interrupt the command", func() {
+			session, err := Start(exec.Command("sleep", "10000000"), GinkgoWriter, GinkgoWriter)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			session.Interrupt()
+			Ω(session).ShouldNot(Exit(), "Should not exit immediately...")
+			Eventually(session).Should(Exit(INVALID_EXIT_CODE), "Go handles processes the exit with signals in a weird way.  It doesn't return a valid status code!")
+		})
+	})
+
+	Describe("terminate", func() {
+		It("should terminate the command", func() {
+			session, err := Start(exec.Command("sleep", "10000000"), GinkgoWriter, GinkgoWriter)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			session.Terminate()
+			Ω(session).ShouldNot(Exit(), "Should not exit immediately...")
+			Eventually(session).Should(Exit(INVALID_EXIT_CODE), "Go handles processes the exit with signals in a weird way.  It doesn't return a valid status code!")
+		})
+	})
+
+	Describe("singal", func() {
+		It("should send the signal to the command", func() {
+			session, err := Start(exec.Command("sleep", "10000000"), GinkgoWriter, GinkgoWriter)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			session.Signal(syscall.SIGABRT)
+			Ω(session).ShouldNot(Exit(), "Should not exit immediately...")
+			Eventually(session).Should(Exit(INVALID_EXIT_CODE), "Go handles processes the exit with signals in a weird way.  It doesn't return a valid status code!")
 		})
 	})
 
