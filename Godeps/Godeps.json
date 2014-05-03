@@ -6,6 +6,10 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/bmizerany/pat",
+			"Rev": "51b7af73e39f6dc59846b22d56ca886d105ef0c3"
+		},
+		{
 			"ImportPath": "github.com/cheggaaa/pb",
 			"Rev": "a4339a42dc7ac74793debe4c726fcb47ec39bcc3"
 		},
@@ -32,6 +36,14 @@
 		{
 			"ImportPath": "github.com/pivotal-golang/archiver/compressor",
 			"Rev": "384be1849829591a6f355be67f65e3a574206791"
+		},
+		{
+			"ImportPath": "github.com/tedsuo/router",
+			"Rev": "ff4992c52c392a38d24b14144508fc7447a1c8e6"
+		},
+		{
+			"ImportPath": "github.com/winston-ci/redgreen/routes",
+			"Rev": "9805b5eacbe85843c143e6aff845d6f259a3619c"
 		}
 	]
 }
