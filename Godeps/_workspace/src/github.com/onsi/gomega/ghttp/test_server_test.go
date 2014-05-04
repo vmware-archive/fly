@@ -310,41 +310,80 @@ var _ = Describe("TestServer", func() {
 		})
 
 		Describe("RespondWith", func() {
-			BeforeEach(func() {
-				s.AppendHandlers(CombineHandlers(
-					VerifyRequest("POST", "/foo"),
-					RespondWith(http.StatusCreated, "sweet"),
-				))
+			Context("without headers", func() {
+				BeforeEach(func() {
+					s.AppendHandlers(CombineHandlers(
+						VerifyRequest("POST", "/foo"),
+						RespondWith(http.StatusCreated, "sweet"),
+					), CombineHandlers(
+						VerifyRequest("POST", "/foo"),
+						RespondWith(http.StatusOK, []byte("sour")),
+					))
+				})
+
+				It("should return the response", func() {
+					resp, err = http.Post(s.URL()+"/foo", "application/json", nil)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
+
+					body, err := ioutil.ReadAll(resp.Body)
+					Ω(err).ShouldNot(HaveOccurred())
+					Ω(body).Should(Equal([]byte("sweet")))
+
+					resp, err = http.Post(s.URL()+"/foo", "application/json", nil)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					Ω(resp.StatusCode).Should(Equal(http.StatusOK))
+
+					body, err = ioutil.ReadAll(resp.Body)
+					Ω(err).ShouldNot(HaveOccurred())
+					Ω(body).Should(Equal([]byte("sour")))
+				})
 			})
 
-			It("should return the response", func() {
-				resp, err = http.Post(s.URL()+"/foo", "application/json", nil)
-				Ω(err).ShouldNot(HaveOccurred())
+			Context("with headers", func() {
+				BeforeEach(func() {
+					s.AppendHandlers(CombineHandlers(
+						VerifyRequest("POST", "/foo"),
+						RespondWith(http.StatusCreated, "sweet", http.Header{"X-Custom-Header": []string{"my header"}}),
+					))
+				})
 
-				Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
+				It("should return the headers too", func() {
+					resp, err = http.Post(s.URL()+"/foo", "application/json", nil)
+					Ω(err).ShouldNot(HaveOccurred())
 
-				body, err := ioutil.ReadAll(resp.Body)
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(body).Should(Equal([]byte("sweet")))
+					Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
+					Ω(ioutil.ReadAll(resp.Body)).Should(Equal([]byte("sweet")))
+					Ω(resp.Header.Get("X-Custom-Header")).Should(Equal("my header"))
+				})
 			})
 		})
 
 		Describe("RespondWithPtr", func() {
 			var code int
-			var body string
+			var byteBody []byte
+			var stringBody string
 			BeforeEach(func() {
 				code = http.StatusOK
-				body = "sweet"
+				byteBody = []byte("sweet")
+				stringBody = "sour"
 
 				s.AppendHandlers(CombineHandlers(
 					VerifyRequest("POST", "/foo"),
-					RespondWithPtr(&code, &body),
+					RespondWithPtr(&code, &byteBody),
+				), CombineHandlers(
+					VerifyRequest("POST", "/foo"),
+					RespondWithPtr(&code, &stringBody),
 				))
 			})
 
 			It("should return the response", func() {
 				code = http.StatusCreated
-				body = "tasty"
+				byteBody = []byte("tasty")
+				stringBody = "treat"
+
 				resp, err = http.Post(s.URL()+"/foo", "application/json", nil)
 				Ω(err).ShouldNot(HaveOccurred())
 
@@ -353,6 +392,15 @@ var _ = Describe("TestServer", func() {
 				body, err := ioutil.ReadAll(resp.Body)
 				Ω(err).ShouldNot(HaveOccurred())
 				Ω(body).Should(Equal([]byte("tasty")))
+
+				resp, err = http.Post(s.URL()+"/foo", "application/json", nil)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				Ω(resp.StatusCode).Should(Equal(http.StatusCreated))
+
+				body, err = ioutil.ReadAll(resp.Body)
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(body).Should(Equal([]byte("treat")))
 			})
 
 			Context("when passed a nil body", func() {

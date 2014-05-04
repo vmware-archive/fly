@@ -27,11 +27,11 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "1e48048b2e01c7f1830144e30eea21db3cd3b574"
+			"Rev": "51ddbbc2ace9f9ad4cf06ba63442ea2ef2019837"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "660b70079010c9eeeffdc381fcb3a8cde45ce495"
+			"Rev": "f4dac808e5fede858287ffad1324f1d67225585b"
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/archiver/compressor",
@@ -42,8 +42,16 @@
 			"Rev": "ff4992c52c392a38d24b14144508fc7447a1c8e6"
 		},
 		{
+			"ImportPath": "github.com/winston-ci/redgreen/api/builds",
+			"Rev": "3b624461c70845cf655c93ea4c19d118463176db"
+		},
+		{
+			"ImportPath": "github.com/winston-ci/redgreen/logbuffer",
+			"Rev": "3b624461c70845cf655c93ea4c19d118463176db"
+		},
+		{
 			"ImportPath": "github.com/winston-ci/redgreen/routes",
-			"Rev": "9805b5eacbe85843c143e6aff845d6f259a3619c"
+			"Rev": "3b624461c70845cf655c93ea4c19d118463176db"
 		}
 	]
 }
