@@ -1,13 +1,14 @@
 package pat
 
 import (
-	"github.com/bmizerany/assert"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/bmizerany/assert"
 )
 
 func TestPatMatch(t *testing.T) {
@@ -218,23 +219,23 @@ func TestPatImplicitRedirect(t *testing.T) {
 }
 
 func TestTail(t *testing.T) {
-	if g := Tail("/:a/", "/x/y/z"); g != "y/z" {
-		t.Fatalf("want %q, got %q", "y/z", g)
-	}
-
-	if g := Tail("/:a/", "/x"); g != "" {
-		t.Fatalf("want %q, got %q", "", g)
-	}
-
-	if g := Tail("/:a/", "/x/"); g != "" {
-		t.Fatalf("want %q, got %q", "", g)
-	}
-
-	if g := Tail("/:a", "/x/y/z"); g != "" {
-		t.Fatalf("want: %q, got %q", "", g)
-	}
-
-	if g := Tail("/b/:a", "/x/y/z"); g != "" {
-		t.Fatalf("want: %q, got %q", "", g)
+	for i, test := range []struct {
+		pat    string
+		path   string
+		expect string
+	}{
+		{"/:a/", "/x/y/z", "y/z"},
+		{"/:a/", "/x", ""},
+		{"/:a/", "/x/", ""},
+		{"/:a", "/x/y/z", ""},
+		{"/b/:a", "/x/y/z", ""},
+		{"/hello/:title/", "/hello/mr/mizerany", "mizerany"},
+		{"/:a/", "/x/y/z", "y/z"},
+	} {
+		tail := Tail(test.pat, test.path)
+		if tail != test.expect {
+			t.Errorf("failed test %d: Tail(%q, %q) == %q (!= %q)",
+				i, test.pat, test.path, tail, test.expect)
+		}
 	}
 }

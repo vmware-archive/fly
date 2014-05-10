@@ -95,7 +95,7 @@ var _ = Describe("Tgz Compressor", func() {
 
 		destFile := filepath.Join(destDir, "compress-dst.tgz")
 
-		err := compressor.Compress(srcDir, destFile)
+		err := compressor.Compress(srcDir+"/", destFile)
 		Ω(err).ShouldNot(HaveOccurred())
 
 		finalReadingDir, err := ioutil.TempDir(destDir, "final")
