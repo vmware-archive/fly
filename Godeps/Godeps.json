@@ -10,10 +10,6 @@
 			"Rev": "48be7df2c27e1cec821a3284a683ce6ef90d9052"
 		},
 		{
-			"ImportPath": "github.com/cheggaaa/pb",
-			"Rev": "a4339a42dc7ac74793debe4c726fcb47ec39bcc3"
-		},
-		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",
 			"Rev": "84842532f8194fe186b48a009251dfaec9924ccd"
 		},
@@ -27,15 +23,16 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "51ddbbc2ace9f9ad4cf06ba63442ea2ef2019837"
+			"Comment": "v1.0.0-2-g4cf6831",
+			"Rev": "4cf683101c36426dc975f4db4d7f01d9c071f31a"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "f5533d435ebfcf4fa0463202dc0e966b983618b8"
+			"Rev": "05c2b322d514282430789eb9ff8efee6c904cc77"
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/archiver/compressor",
-			"Rev": "e46831b67d1f71fe27f85b6b4224e2cf55efea8a"
+			"Rev": "95890bdee16f0b84ba4a442e956ea278f7d7f0ef"
 		},
 		{
 			"ImportPath": "github.com/tedsuo/router",
@@ -43,11 +40,11 @@
 		},
 		{
 			"ImportPath": "github.com/winston-ci/redgreen/api/builds",
-			"Rev": "07acb3750f350e5e56d5a2271a283e32afe31f0f"
+			"Rev": "6613f646bb49e07585754038b6de6ffdf17def72"
 		},
 		{
 			"ImportPath": "github.com/winston-ci/redgreen/routes",
-			"Rev": "07acb3750f350e5e56d5a2271a283e32afe31f0f"
+			"Rev": "6613f646bb49e07585754038b6de6ffdf17def72"
 		}
 	]
 }
