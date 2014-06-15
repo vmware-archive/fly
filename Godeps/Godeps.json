@@ -40,11 +40,11 @@
 		},
 		{
 			"ImportPath": "github.com/winston-ci/redgreen/api/builds",
-			"Rev": "6613f646bb49e07585754038b6de6ffdf17def72"
+			"Rev": "81fa3973f6a70adddae82a935ad39ae39fb800cd"
 		},
 		{
 			"ImportPath": "github.com/winston-ci/redgreen/routes",
-			"Rev": "6613f646bb49e07585754038b6de6ffdf17def72"
+			"Rev": "81fa3973f6a70adddae82a935ad39ae39fb800cd"
 		}
 	]
 }
