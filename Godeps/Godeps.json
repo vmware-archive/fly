@@ -1,6 +1,6 @@
 {
-	"ImportPath": "github.com/winston-ci/smith",
-	"GoVersion": "go1.2.1",
+	"ImportPath": "github.com/concourse/fly",
+	"GoVersion": "go1.3",
 	"Packages": [
 		"./..."
 	],
@@ -8,6 +8,14 @@
 		{
 			"ImportPath": "github.com/bmizerany/pat",
 			"Rev": "48be7df2c27e1cec821a3284a683ce6ef90d9052"
+		},
+		{
+			"ImportPath": "github.com/concourse/glider/api/builds",
+			"Rev": "e5fa491f0d724c44375ef4600c06b4c5b17adc2c"
+		},
+		{
+			"ImportPath": "github.com/concourse/glider/routes",
+			"Rev": "e5fa491f0d724c44375ef4600c06b4c5b17adc2c"
 		},
 		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",
@@ -23,28 +31,20 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Comment": "v1.0.0-2-g4cf6831",
-			"Rev": "4cf683101c36426dc975f4db4d7f01d9c071f31a"
+			"Comment": "v1.0.0-16-g12446bb",
+			"Rev": "12446bbcc74950944c897e32ea99cc8d058f9c92"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "05c2b322d514282430789eb9ff8efee6c904cc77"
+			"Rev": "036273e6f643552b16fe7a6464afd2ae0324992e"
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/archiver/compressor",
-			"Rev": "95890bdee16f0b84ba4a442e956ea278f7d7f0ef"
+			"Rev": "02489ef5ef1eaae09e95d0abae099593c8c5e03c"
 		},
 		{
 			"ImportPath": "github.com/tedsuo/router",
 			"Rev": "e148496de27fab9f10ef07f3be00471fa59f58b9"
-		},
-		{
-			"ImportPath": "github.com/winston-ci/redgreen/api/builds",
-			"Rev": "81fa3973f6a70adddae82a935ad39ae39fb800cd"
-		},
-		{
-			"ImportPath": "github.com/winston-ci/redgreen/routes",
-			"Rev": "81fa3973f6a70adddae82a935ad39ae39fb800cd"
 		}
 	]
 }

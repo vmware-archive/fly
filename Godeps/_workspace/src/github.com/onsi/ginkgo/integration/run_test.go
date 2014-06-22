@@ -1,11 +1,13 @@
 package integration_test
 
 import (
-	"strings"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/types"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	"runtime"
+	"strings"
 )
 
 var _ = Describe("Running Specs", func() {
@@ -66,6 +68,28 @@ var _ = Describe("Running Specs", func() {
 		})
 	})
 
+	Context("when passed a number of packages to run, some of which have focused tests", func() {
+		BeforeEach(func() {
+			pathToTest = tmpPath("ginkgo")
+			otherPathToTest := tmpPath("other")
+			focusedPathToTest := tmpPath("focused")
+			copyIn("passing_ginkgo_tests", pathToTest)
+			copyIn("more_ginkgo_tests", otherPathToTest)
+			copyIn("focused_fixture", focusedPathToTest)
+		})
+
+		It("should exit with a status code of 2 and explain why", func() {
+			session := startGinkgo(tmpDir, "--noColor", "--succinct=false", "-r")
+			Eventually(session).Should(gexec.Exit(types.GINKGO_FOCUS_EXIT_CODE))
+			output := string(session.Out.Contents())
+
+			Ω(output).Should(ContainSubstring("Running Suite: Passing_ginkgo_tests Suite"))
+			Ω(output).Should(ContainSubstring("Running Suite: More_ginkgo_tests Suite"))
+			Ω(output).Should(ContainSubstring("Test Suite Passed"))
+			Ω(output).Should(ContainSubstring("Detected Programmatic Focus - setting exit status to %d", types.GINKGO_FOCUS_EXIT_CODE))
+		})
+	})
+
 	Context("when told to skipPackages", func() {
 		BeforeEach(func() {
 			pathToTest = tmpPath("ginkgo")
@@ -82,6 +106,29 @@ var _ = Describe("Running Specs", func() {
 			Ω(output).Should(ContainSubstring("Passing_ginkgo_tests Suite"))
 			Ω(output).ShouldNot(ContainSubstring("More_ginkgo_tests Suite"))
 			Ω(output).Should(ContainSubstring("Test Suite Passed"))
+		})
+	})
+
+	Context("when told to randomizeSuites", func() {
+		BeforeEach(func() {
+			pathToTest = tmpPath("ginkgo")
+			otherPathToTest := tmpPath("other")
+			copyIn("passing_ginkgo_tests", pathToTest)
+			copyIn("more_ginkgo_tests", otherPathToTest)
+		})
+
+		It("should skip packages that match the regexp", func() {
+			session := startGinkgo(tmpDir, "--noColor", "--randomizeSuites", "-r", "--seed=2")
+			Eventually(session).Should(gexec.Exit(0))
+
+			Ω(session).Should(gbytes.Say("More_ginkgo_tests Suite"))
+			Ω(session).Should(gbytes.Say("Passing_ginkgo_tests Suite"))
+
+			session = startGinkgo(tmpDir, "--noColor", "--randomizeSuites", "-r", "--seed=3")
+			Eventually(session).Should(gexec.Exit(0))
+
+			Ω(session).Should(gbytes.Say("Passing_ginkgo_tests Suite"))
+			Ω(session).Should(gbytes.Say("More_ginkgo_tests Suite"))
 		})
 	})
 
@@ -136,13 +183,30 @@ var _ = Describe("Running Specs", func() {
 			copyIn("passing_ginkgo_tests", pathToTest)
 		})
 
-		It("should aggregate output", func() {
-			session := startGinkgo(pathToTest, "--noColor", "-succinct", "-nodes=2")
-			Eventually(session).Should(gexec.Exit(0))
-			output := string(session.Out.Contents())
+		Context("with a specific number of -nodes", func() {
+			It("should use the specified number of nodes", func() {
+				session := startGinkgo(pathToTest, "--noColor", "-succinct", "-nodes=2")
+				Eventually(session).Should(gexec.Exit(0))
+				output := string(session.Out.Contents())
 
-			Ω(output).Should(MatchRegexp(`\[\d+\] Passing_ginkgo_tests Suite - 3/3 specs - 2 nodes ••• SUCCESS! [\d.mus]+`))
-			Ω(output).Should(ContainSubstring("Test Suite Passed"))
+				Ω(output).Should(MatchRegexp(`\[\d+\] Passing_ginkgo_tests Suite - 3/3 specs - 2 nodes ••• SUCCESS! [\d.mus]+`))
+				Ω(output).Should(ContainSubstring("Test Suite Passed"))
+			})
+		})
+
+		Context("with -p", func() {
+			It("it should autocompute the number of nodes", func() {
+				session := startGinkgo(pathToTest, "--noColor", "-succinct", "-p")
+				Eventually(session).Should(gexec.Exit(0))
+				output := string(session.Out.Contents())
+
+				nodes := runtime.NumCPU()
+				if nodes > 4 {
+					nodes = nodes - 1
+				}
+				Ω(output).Should(MatchRegexp(`\[\d+\] Passing_ginkgo_tests Suite - 3/3 specs - %d nodes ••• SUCCESS! [\d.mus]+`, nodes))
+				Ω(output).Should(ContainSubstring("Test Suite Passed"))
+			})
 		})
 	})
 
@@ -203,6 +267,9 @@ var _ = Describe("Running Specs", func() {
 				Ω(output).Should(ContainSubstring("• Failure"))
 				Ω(output).ShouldNot(ContainSubstring("More_ginkgo_tests Suite"))
 				Ω(output).Should(ContainSubstring("Test Suite Failed"))
+
+				Ω(output).Should(ContainSubstring("Summarizing 1 Failure:"))
+				Ω(output).Should(ContainSubstring("[Fail] FailingGinkgoTests [It] should fail"))
 			})
 		})
 
