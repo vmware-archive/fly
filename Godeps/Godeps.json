@@ -11,11 +11,15 @@
 		},
 		{
 			"ImportPath": "github.com/concourse/glider/api/builds",
-			"Rev": "e5fa491f0d724c44375ef4600c06b4c5b17adc2c"
+			"Rev": "6c466580633ad819682bbd1db82d705b79d31e15"
 		},
 		{
 			"ImportPath": "github.com/concourse/glider/routes",
-			"Rev": "e5fa491f0d724c44375ef4600c06b4c5b17adc2c"
+			"Rev": "6c466580633ad819682bbd1db82d705b79d31e15"
+		},
+		{
+			"ImportPath": "github.com/concourse/turbine/api/builds",
+			"Rev": "79ef9856b0f663a560c6dadcedbd4a3b708aad49"
 		},
 		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",
