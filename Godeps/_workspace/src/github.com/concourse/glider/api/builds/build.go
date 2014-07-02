@@ -8,9 +8,9 @@ import (
 
 type Build struct {
 	Guid      string        `json:"guid,omitempty"`
+	Name      string        `json:"name"`
 	CreatedAt time.Time     `json:"created_at,omitempty"`
 	Config    builds.Config `json:"config"`
-	Path      string        `json:"path,omitempty"`
 	Status    string        `json:"status,omitempty"`
 }
 
