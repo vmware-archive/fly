@@ -1,10 +1,11 @@
 package routes
 
-import "github.com/tedsuo/router"
+import "github.com/tedsuo/rata"
 
 const (
 	CreateBuild  = "CreateBuild"
-	GetBuild     = "GetBuild"
+	GetBuilds    = "GetBuilds"
+	HijackBuild  = "HijackBuild"
 	UploadBits   = "UploadBits"
 	DownloadBits = "DownloadBits"
 	SetResult    = "SetResult"
@@ -13,16 +14,18 @@ const (
 	LogOutput    = "LogOutput"
 )
 
-var Routes = router.Routes{
-	{Path: "/builds", Method: "POST", Handler: CreateBuild},
-	{Path: "/builds", Method: "GET", Handler: GetBuild},
+var Routes = rata.Routes{
+	{Path: "/builds", Method: "POST", Name: CreateBuild},
+	{Path: "/builds", Method: "GET", Name: GetBuilds},
 
-	{Path: "/builds/:guid/bits", Method: "POST", Handler: UploadBits},
-	{Path: "/builds/:guid/bits", Method: "GET", Handler: DownloadBits},
+	{Path: "/builds/:guid/bits", Method: "POST", Name: UploadBits},
+	{Path: "/builds/:guid/bits", Method: "GET", Name: DownloadBits},
 
-	{Path: "/builds/:guid/result", Method: "PUT", Handler: SetResult},
-	{Path: "/builds/:guid/result", Method: "GET", Handler: GetResult},
+	{Path: "/builds/:guid/hijack", Method: "POST", Name: HijackBuild},
 
-	{Path: "/builds/:guid/log/input", Method: "GET", Handler: LogInput},
-	{Path: "/builds/:guid/log/output", Method: "GET", Handler: LogOutput},
+	{Path: "/builds/:guid/result", Method: "PUT", Name: SetResult},
+	{Path: "/builds/:guid/result", Method: "GET", Name: GetResult},
+
+	{Path: "/builds/:guid/log/input", Method: "GET", Name: LogInput},
+	{Path: "/builds/:guid/log/output", Method: "GET", Name: LogOutput},
 }

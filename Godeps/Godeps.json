@@ -6,20 +6,53 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "code.google.com/p/go.net/websocket",
+			"Comment": "null-137",
+			"Rev": "335bcad0b70a3ba61b9951992a418c9176a73fd4"
+		},
+		{
 			"ImportPath": "github.com/bmizerany/pat",
-			"Rev": "48be7df2c27e1cec821a3284a683ce6ef90d9052"
+			"Rev": "b8a35001b773c267eb260a691f4e5499a3531600"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/garden/warden",
+			"Rev": "3c5f76f22096ab6b4565a9d5b81cce44584df400"
 		},
 		{
 			"ImportPath": "github.com/concourse/glider/api/builds",
-			"Rev": "8dc4a085146b031e5b2ecff91754d41bd37dc295"
+			"Rev": "9b7811672c8f4a1d2e361ebd556ab70430943caa"
 		},
 		{
 			"ImportPath": "github.com/concourse/glider/routes",
-			"Rev": "8dc4a085146b031e5b2ecff91754d41bd37dc295"
+			"Rev": "9b7811672c8f4a1d2e361ebd556ab70430943caa"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/builds",
-			"Rev": "2c2807c25395245e1155191cebfb73884134c3f3"
+			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+		},
+		{
+			"ImportPath": "github.com/concourse/turbine/api/hijack",
+			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+		},
+		{
+			"ImportPath": "github.com/concourse/turbine/builder",
+			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+		},
+		{
+			"ImportPath": "github.com/concourse/turbine/config",
+			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+		},
+		{
+			"ImportPath": "github.com/concourse/turbine/logwriter",
+			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+		},
+		{
+			"ImportPath": "github.com/concourse/turbine/resource",
+			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+		},
+		{
+			"ImportPath": "github.com/concourse/turbine/scheduler",
+			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
 		},
 		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",
@@ -27,7 +60,12 @@
 		},
 		{
 			"ImportPath": "github.com/gorilla/websocket",
-			"Rev": "10a95d14a3a215f5e2045d3dbbcd29f1ab209586"
+			"Rev": "10afcadf69098c003a97f23349c25ca16f0543e3"
+		},
+		{
+			"ImportPath": "github.com/kr/pty",
+			"Comment": "release.r56-19-g67e2db2",
+			"Rev": "67e2db24c831afa6c64fc17b4a143390674365ef"
 		},
 		{
 			"ImportPath": "github.com/mgutz/ansi",
@@ -35,20 +73,28 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Comment": "v1.0.0-16-g12446bb",
-			"Rev": "12446bbcc74950944c897e32ea99cc8d058f9c92"
+			"Comment": "v1.0.0-18-gb8a1dc9",
+			"Rev": "b8a1dc909067ac17581903a056b5a709fc74c779"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "036273e6f643552b16fe7a6464afd2ae0324992e"
+			"Rev": "efd113280743f90026f1dc18b93ca5355d8df0bf"
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/archiver/compressor",
-			"Rev": "02489ef5ef1eaae09e95d0abae099593c8c5e03c"
+			"Rev": "25222f5bb2b00650dac200951b86c55ffec45c0c"
 		},
 		{
-			"ImportPath": "github.com/tedsuo/router",
-			"Rev": "e148496de27fab9f10ef07f3be00471fa59f58b9"
+			"ImportPath": "github.com/pivotal-golang/lager",
+			"Rev": "e8822eb6379ecd32065776bd84139100cffa5563"
+		},
+		{
+			"ImportPath": "github.com/pkg/term",
+			"Rev": "a7d4014a19a3edb36446f2674dd9ee0ab798caf2"
+		},
+		{
+			"ImportPath": "github.com/tedsuo/rata",
+			"Rev": "ffbc6810b2dff37aade33e5bf1ee8deadafe867d"
 		}
 	]
 }

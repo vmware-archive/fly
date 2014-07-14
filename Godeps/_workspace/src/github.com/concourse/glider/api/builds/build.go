@@ -12,6 +12,7 @@ type Build struct {
 	CreatedAt time.Time     `json:"created_at,omitempty"`
 	Config    builds.Config `json:"config"`
 	Status    string        `json:"status,omitempty"`
+	HijackURL string        `json:"-"`
 }
 
 type BuildResult struct {
