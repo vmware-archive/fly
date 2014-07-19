@@ -16,43 +16,44 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/garden/warden",
-			"Rev": "3c5f76f22096ab6b4565a9d5b81cce44584df400"
+			"Comment": "go-wshd-586-ge38da7b",
+			"Rev": "e38da7b145595dc5451ba7dd70f0a9d5ebb8081c"
 		},
 		{
 			"ImportPath": "github.com/concourse/glider/api/builds",
-			"Rev": "9b7811672c8f4a1d2e361ebd556ab70430943caa"
+			"Rev": "103601b3501223c50207538a6e3ab5b5e283c34e"
 		},
 		{
 			"ImportPath": "github.com/concourse/glider/routes",
-			"Rev": "9b7811672c8f4a1d2e361ebd556ab70430943caa"
+			"Rev": "103601b3501223c50207538a6e3ab5b5e283c34e"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/builds",
-			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+			"Rev": "707d93f03aaf46d6174758a32e9d79df2159543a"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/hijack",
-			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+			"Rev": "707d93f03aaf46d6174758a32e9d79df2159543a"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/builder",
-			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+			"Rev": "707d93f03aaf46d6174758a32e9d79df2159543a"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/config",
-			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+			"Rev": "707d93f03aaf46d6174758a32e9d79df2159543a"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/logwriter",
-			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+			"Rev": "707d93f03aaf46d6174758a32e9d79df2159543a"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/resource",
-			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+			"Rev": "707d93f03aaf46d6174758a32e9d79df2159543a"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/scheduler",
-			"Rev": "c8359caebefc2fcb9bccc96adf1ef08de5aeaec5"
+			"Rev": "707d93f03aaf46d6174758a32e9d79df2159543a"
 		},
 		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",

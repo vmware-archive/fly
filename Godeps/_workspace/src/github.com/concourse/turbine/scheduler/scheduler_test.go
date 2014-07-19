@@ -320,7 +320,12 @@ var _ = Describe("Scheduler", func() {
 					spec := warden.ProcessSpec{
 						Path: "process-path",
 						Args: []string{"process", "args"},
-						TTY:  true,
+						TTY: &warden.TTYSpec{
+							WindowSize: &warden.WindowSize{
+								Columns: 123,
+								Rows:    456,
+							},
+						},
 					}
 
 					io := warden.ProcessIO{
