@@ -34,6 +34,8 @@ var _ = Describe("Resource Out", func() {
 			Params: builds.Params{"some": "params"},
 			Source: builds.Source{"some": "source"},
 
+			Version: builds.Version{"original": "version"},
+
 			SourcePath: "some-resource",
 		}
 
@@ -76,7 +78,11 @@ var _ = Describe("Resource Out", func() {
 		request, err := ioutil.ReadAll(io.Stdin)
 		Ω(err).ShouldNot(HaveOccurred())
 
-		Ω(string(request)).Should(Equal(`{"params":{"some":"params"},"source":{"some":"source"}}`))
+		Ω(request).Should(MatchJSON(`{
+			"params": {"some":"params"},
+			"source": {"some":"source"},
+			"version": {"original":"version"}
+		}`))
 	})
 
 	Context("when streaming the source in succeeds", func() {

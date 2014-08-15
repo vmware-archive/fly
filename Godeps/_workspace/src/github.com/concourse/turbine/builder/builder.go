@@ -252,6 +252,8 @@ func (builder *builder) runBuild(
 		Env:  env,
 		Dir:  "/tmp/build/src",
 
+		TTY: &warden.TTYSpec{},
+
 		Privileged: privileged,
 	}, warden.ProcessIO{
 		Stdout: logs,
@@ -296,12 +298,14 @@ func (builder *builder) performOutputs(
 ) ([]builds.Output, error) {
 	allOutputs := map[string]builds.Output{}
 
-	// Implicit outputs
+	// implicit outputs
 	for _, input := range build.Inputs {
 		allOutputs[input.Name] = builds.Output{
-			Name:    input.Name,
-			Type:    input.Type,
-			Version: input.Version,
+			Name:     input.Name,
+			Type:     input.Type,
+			Source:   input.Source,
+			Version:  input.Version,
+			Metadata: input.Metadata,
 		}
 	}
 
@@ -311,6 +315,11 @@ func (builder *builder) performOutputs(
 
 		for _, output := range build.Outputs {
 			go func(output builds.Output) {
+				inputOutput, found := allOutputs[output.Name]
+				if found {
+					output.Version = inputOutput.Version
+				}
+
 				streamOut, err := container.StreamOut("/tmp/build/src/")
 				if err != nil {
 					errs <- err

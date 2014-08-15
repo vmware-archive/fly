@@ -78,7 +78,11 @@ var _ = Describe("Resource In", func() {
 		request, err := ioutil.ReadAll(io.Stdin)
 		Ω(err).ShouldNot(HaveOccurred())
 
-		Ω(string(request)).Should(Equal(`{"version":{"some":"version"},"source":{"some":"source"},"params":{"some":"params"}}`))
+		Ω(request).Should(MatchJSON(`{
+			"source": {"some":"source"},
+			"params": {"some":"params"},
+			"version": {"some":"version"}
+		}`))
 	})
 
 	Context("when /opt/resource/in prints the source", func() {

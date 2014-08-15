@@ -13,6 +13,7 @@ type Build struct {
 	Config    builds.Config `json:"config"`
 	Status    string        `json:"status,omitempty"`
 	HijackURL string        `json:"-"`
+	AbortURL  string        `json:"-"`
 }
 
 type BuildResult struct {

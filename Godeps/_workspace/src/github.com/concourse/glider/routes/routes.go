@@ -6,6 +6,7 @@ const (
 	CreateBuild  = "CreateBuild"
 	GetBuilds    = "GetBuilds"
 	HijackBuild  = "HijackBuild"
+	AbortBuild   = "AbortBuild"
 	UploadBits   = "UploadBits"
 	DownloadBits = "DownloadBits"
 	SetResult    = "SetResult"
@@ -22,6 +23,7 @@ var Routes = rata.Routes{
 	{Path: "/builds/:guid/bits", Method: "GET", Name: DownloadBits},
 
 	{Path: "/builds/:guid/hijack", Method: "POST", Name: HijackBuild},
+	{Path: "/builds/:guid/abort", Method: "POST", Name: AbortBuild},
 
 	{Path: "/builds/:guid/result", Method: "PUT", Name: SetResult},
 	{Path: "/builds/:guid/result", Method: "GET", Name: GetResult},

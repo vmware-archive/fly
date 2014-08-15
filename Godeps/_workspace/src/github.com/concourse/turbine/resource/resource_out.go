@@ -8,8 +8,9 @@ import (
 
 // Request payload from resource to /opt/resource/out script
 type outRequest struct {
-	Params builds.Params `json:"params"`
-	Source builds.Source `json:"source"`
+	Source  builds.Source  `json:"source"`
+	Params  builds.Params  `json:"params,omitempty"`
+	Version builds.Version `json:"version,omitempty"`
 }
 
 // Response payload from /opt/resource/out script to resource
@@ -30,8 +31,9 @@ func (resource *resource) Out(sourceStream io.Reader, output builds.Output) (bui
 		"/opt/resource/out",
 		[]string{"/tmp/build/src"},
 		outRequest{
-			Params: output.Params,
-			Source: output.Source,
+			Params:  output.Params,
+			Source:  output.Source,
+			Version: output.Version,
 		},
 		&resp,
 	)
