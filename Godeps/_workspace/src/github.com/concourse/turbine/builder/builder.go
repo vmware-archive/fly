@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/cloudfoundry-incubator/garden/warden"
 
 	"github.com/concourse/turbine/api/builds"
+	"github.com/concourse/turbine/event"
 	"github.com/concourse/turbine/logwriter"
 	"github.com/concourse/turbine/resource"
 )
@@ -15,10 +17,10 @@ import (
 var ErrAborted = errors.New("build aborted")
 
 type Builder interface {
-	Start(builds.Build, <-chan struct{}) (RunningBuild, error)
-	Attach(RunningBuild, <-chan struct{}) (SucceededBuild, error, error)
+	Start(builds.Build, event.Emitter, <-chan struct{}) (RunningBuild, error)
+	Attach(RunningBuild, event.Emitter, <-chan struct{}) (SucceededBuild, error, error)
 	Hijack(RunningBuild, warden.ProcessSpec, warden.ProcessIO) (warden.Process, error)
-	Complete(SucceededBuild, <-chan struct{}) (builds.Build, error)
+	Complete(SucceededBuild, event.Emitter, <-chan struct{}) (builds.Build, error)
 }
 
 type RunningBuild struct {
@@ -29,8 +31,6 @@ type RunningBuild struct {
 
 	ProcessID uint32
 	Process   warden.Process
-
-	LogStream io.WriteCloser
 }
 
 type SucceededBuild struct {
@@ -38,8 +38,6 @@ type SucceededBuild struct {
 
 	ContainerHandle string
 	Container       warden.Container
-
-	LogStream io.WriteCloser
 }
 
 type builder struct {
@@ -57,20 +55,17 @@ func NewBuilder(
 	}
 }
 
-type nullSink struct{}
-
-func (nullSink) Write(data []byte) (int, error) { return len(data), nil }
-func (nullSink) Close() error                   { return nil }
-
-func (builder *builder) Start(build builds.Build, abort <-chan struct{}) (RunningBuild, error) {
-	logs := builder.logsFor(build.LogsURL)
-
+func (builder *builder) Start(build builds.Build, emitter event.Emitter, abort <-chan struct{}) (RunningBuild, error) {
 	resources := map[string]io.Reader{}
 
 	for i, input := range build.Inputs {
-		resource, err := builder.tracker.Init(input.Type, logs, abort)
+		eventLog := logwriter.NewWriter(emitter, event.Origin{
+			Type: event.OriginTypeInput,
+			Name: input.Name,
+		})
+
+		resource, err := builder.tracker.Init(input.Type, eventLog, abort)
 		if err != nil {
-			logs.Close()
 			return RunningBuild{}, err
 		}
 
@@ -78,7 +73,6 @@ func (builder *builder) Start(build builds.Build, abort <-chan struct{}) (Runnin
 
 		tarStream, computedInput, buildConfig, err := resource.In(input)
 		if err != nil {
-			logs.Close()
 			return RunningBuild{}, err
 		}
 
@@ -89,21 +83,18 @@ func (builder *builder) Start(build builds.Build, abort <-chan struct{}) (Runnin
 		resources[input.Name] = tarStream
 	}
 
-	container, err := builder.createBuildContainer(build.Config, logs)
+	container, err := builder.createBuildContainer(build.Config, emitter)
 	if err != nil {
-		logs.Close()
 		return RunningBuild{}, err
 	}
 
 	err = builder.streamInResources(container, resources, build.Config.Paths)
 	if err != nil {
-		logs.Close()
 		return RunningBuild{}, err
 	}
 
-	process, err := builder.runBuild(container, build.Privileged, build.Config, logs)
+	process, err := builder.runBuild(container, build.Privileged, build.Config, emitter)
 	if err != nil {
-		logs.Close()
 		return RunningBuild{}, err
 	}
 
@@ -115,20 +106,13 @@ func (builder *builder) Start(build builds.Build, abort <-chan struct{}) (Runnin
 
 		ProcessID: process.ID(),
 		Process:   process,
-
-		LogStream: logs,
 	}, nil
 }
 
-func (builder *builder) Attach(running RunningBuild, abort <-chan struct{}) (SucceededBuild, error, error) {
-	if running.LogStream == nil {
-		running.LogStream = builder.logsFor(running.Build.LogsURL)
-	}
-
+func (builder *builder) Attach(running RunningBuild, emitter event.Emitter, abort <-chan struct{}) (SucceededBuild, error, error) {
 	if running.Container == nil {
 		container, err := builder.wardenClient.Lookup(running.ContainerHandle)
 		if err != nil {
-			running.LogStream.Close()
 			return SucceededBuild{}, nil, err
 		}
 
@@ -136,12 +120,11 @@ func (builder *builder) Attach(running RunningBuild, abort <-chan struct{}) (Suc
 	}
 
 	if running.Process == nil {
-		process, err := running.Container.Attach(running.ProcessID, warden.ProcessIO{
-			Stdout: running.LogStream,
-			Stderr: running.LogStream,
-		})
+		process, err := running.Container.Attach(
+			running.ProcessID,
+			emitterProcessIO(emitter),
+		)
 		if err != nil {
-			running.LogStream.Close()
 			return SucceededBuild{}, nil, err
 		}
 
@@ -150,7 +133,6 @@ func (builder *builder) Attach(running RunningBuild, abort <-chan struct{}) (Suc
 
 	status, err := builder.waitForRunToEnd(running, abort)
 	if err != nil {
-		running.LogStream.Close()
 		return SucceededBuild{}, nil, err
 	}
 
@@ -161,19 +143,11 @@ func (builder *builder) Attach(running RunningBuild, abort <-chan struct{}) (Suc
 	return SucceededBuild{
 		Build:     running.Build,
 		Container: running.Container,
-
-		LogStream: running.LogStream,
 	}, nil, nil
 }
 
-func (builder *builder) Complete(succeeded SucceededBuild, abort <-chan struct{}) (builds.Build, error) {
-	if succeeded.LogStream == nil {
-		succeeded.LogStream = builder.logsFor(succeeded.Build.LogsURL)
-	}
-
-	defer succeeded.LogStream.Close()
-
-	outputs, err := builder.performOutputs(succeeded.Container, succeeded.Build, succeeded.LogStream, abort)
+func (builder *builder) Complete(succeeded SucceededBuild, emitter event.Emitter, abort <-chan struct{}) (builds.Build, error) {
+	outputs, err := builder.performOutputs(succeeded.Container, succeeded.Build, emitter, abort)
 	if err != nil {
 		return builds.Build{}, err
 	}
@@ -192,19 +166,13 @@ func (builder *builder) Hijack(running RunningBuild, spec warden.ProcessSpec, io
 	return container.Run(spec, io)
 }
 
-func (builder *builder) logsFor(logURL string) io.WriteCloser {
-	if logURL == "" {
-		return nullSink{}
-	}
-
-	return logwriter.NewWriter(logURL)
-}
-
 func (builder *builder) createBuildContainer(
 	buildConfig builds.Config,
-	logs io.Writer,
+	emitter event.Emitter,
 ) (warden.Container, error) {
-	fmt.Fprintf(logs, "creating container from %s...\n", buildConfig.Image)
+	emitter.EmitEvent(event.Initialize{
+		BuildConfig: buildConfig,
+	})
 
 	containerSpec := warden.ContainerSpec{
 		RootFSPath: buildConfig.Image,
@@ -237,9 +205,11 @@ func (builder *builder) runBuild(
 	container warden.Container,
 	privileged bool,
 	buildConfig builds.Config,
-	logs io.Writer,
+	emitter event.Emitter,
 ) (warden.Process, error) {
-	fmt.Fprintf(logs, "starting...\n")
+	emitter.EmitEvent(event.Start{
+		Time: time.Now().Unix(),
+	})
 
 	env := []string{}
 	for n, v := range buildConfig.Params {
@@ -255,10 +225,7 @@ func (builder *builder) runBuild(
 		TTY: &warden.TTYSpec{},
 
 		Privileged: privileged,
-	}, warden.ProcessIO{
-		Stdout: logs,
-		Stderr: logs,
-	})
+	}, emitterProcessIO(emitter))
 }
 
 func (builder *builder) waitForRunToEnd(
@@ -293,7 +260,7 @@ func (builder *builder) waitForRunToEnd(
 func (builder *builder) performOutputs(
 	container warden.Container,
 	build builds.Build,
-	logs io.Writer,
+	emitter event.Emitter,
 	abort <-chan struct{},
 ) ([]builds.Output, error) {
 	allOutputs := map[string]builds.Output{}
@@ -326,7 +293,12 @@ func (builder *builder) performOutputs(
 					return
 				}
 
-				resource, err := builder.tracker.Init(output.Type, logs, abort)
+				eventLog := logwriter.NewWriter(emitter, event.Origin{
+					Type: event.OriginTypeOutput,
+					Name: output.Name,
+				})
+
+				resource, err := builder.tracker.Init(output.Type, eventLog, abort)
 				if err != nil {
 					errs <- err
 					return
@@ -365,4 +337,17 @@ func (builder *builder) performOutputs(
 	}
 
 	return outputs, nil
+}
+
+func emitterProcessIO(emitter event.Emitter) warden.ProcessIO {
+	return warden.ProcessIO{
+		Stdout: logwriter.NewWriter(emitter, event.Origin{
+			Type: event.OriginTypeRun,
+			Name: "stdout",
+		}),
+		Stderr: logwriter.NewWriter(emitter, event.Origin{
+			Type: event.OriginTypeRun,
+			Name: "stderr",
+		}),
+	}
 }

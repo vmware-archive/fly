@@ -13,6 +13,7 @@ import (
 	"github.com/cloudfoundry-incubator/garden/warden"
 	"github.com/concourse/turbine/api/builds"
 	"github.com/concourse/turbine/builder"
+	"github.com/concourse/turbine/event"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -30,6 +31,8 @@ type scheduler struct {
 
 	builder builder.Builder
 
+	createEmitter EmitterFactory
+
 	httpClient *http.Client
 
 	inFlight *sync.WaitGroup
@@ -40,11 +43,19 @@ type scheduler struct {
 	mutex *sync.RWMutex
 }
 
-func NewScheduler(l lager.Logger, b builder.Builder) Scheduler {
+type EmitterFactory func(logsURL string) event.Emitter
+
+func NewScheduler(
+	l lager.Logger,
+	b builder.Builder,
+	createEmitter EmitterFactory,
+) Scheduler {
 	return &scheduler{
 		logger: l,
 
 		builder: b,
+
+		createEmitter: createEmitter,
 
 		httpClient: &http.Client{
 			Transport: &http.Transport{
@@ -77,19 +88,22 @@ func (scheduler *scheduler) Start(build builds.Build) {
 	abort := scheduler.abortChannel(build.Guid)
 
 	go func() {
-		running, err := scheduler.builder.Start(build, abort)
+		emitter := scheduler.createEmitter(build.EventsCallback)
+		defer emitter.Close()
+
+		running, err := scheduler.builder.Start(build, emitter, abort)
 		if err != nil {
 			log.Error("errored", err)
 
 			build.Status = builds.StatusErrored
-			scheduler.reportBuild(build, log)
+			scheduler.reportBuild(build, log, emitter)
 		} else {
 			log.Info("started")
 
 			running.Build.Status = builds.StatusStarted
-			scheduler.reportBuild(running.Build, log)
+			scheduler.reportBuild(running.Build, log, emitter)
 
-			scheduler.Attach(running)
+			scheduler.attach(running, emitter)
 		}
 
 		scheduler.unregisterAbortChannel(build.Guid)
@@ -98,53 +112,8 @@ func (scheduler *scheduler) Start(build builds.Build) {
 }
 
 func (scheduler *scheduler) Attach(running builder.RunningBuild) {
-	scheduler.inFlight.Add(1) // in addition to .Start's
-	defer scheduler.inFlight.Done()
-
-	scheduler.addRunning(running)
-
-	abort := scheduler.abortChannel(running.Build.Guid)
-	defer scheduler.unregisterAbortChannel(running.Build.Guid)
-
-	log := scheduler.logger.Session("attach", lager.Data{
-		"build": running.Build,
-	})
-
-	succeeded := make(chan builder.SucceededBuild, 1)
-	failed := make(chan error, 1)
-	errored := make(chan error, 1)
-
-	go func() {
-		s, f, e := scheduler.builder.Attach(running, abort)
-		if e != nil {
-			errored <- e
-		} else if f != nil {
-			failed <- e
-		} else {
-			succeeded <- s
-		}
-	}()
-
-	select {
-	case build := <-succeeded:
-		log.Info("succeeded")
-
-		scheduler.complete(build)
-	case err := <-failed:
-		log.Error("failed", err)
-
-		running.Build.Status = builds.StatusFailed
-		scheduler.reportBuild(running.Build, log)
-	case err := <-errored:
-		log.Error("errored", err)
-
-		running.Build.Status = builds.StatusErrored
-		scheduler.reportBuild(running.Build, log)
-	case <-scheduler.draining:
-		return
-	}
-
-	scheduler.removeRunning(running)
+	emitter := scheduler.createEmitter(running.Build.EventsCallback)
+	scheduler.attach(running, emitter)
 }
 
 func (scheduler *scheduler) Abort(guid string) {
@@ -171,24 +140,74 @@ func (scheduler *scheduler) Hijack(guid string, spec warden.ProcessSpec, io ward
 	return scheduler.builder.Hijack(running, spec, io)
 }
 
-func (scheduler *scheduler) complete(succeeded builder.SucceededBuild) {
+func (scheduler *scheduler) attach(running builder.RunningBuild, emitter event.Emitter) {
+	scheduler.inFlight.Add(1) // in addition to .Start's
+	defer scheduler.inFlight.Done()
+
+	scheduler.addRunning(running)
+
+	abort := scheduler.abortChannel(running.Build.Guid)
+	defer scheduler.unregisterAbortChannel(running.Build.Guid)
+
+	log := scheduler.logger.Session("attach", lager.Data{
+		"build": running.Build,
+	})
+
+	succeeded := make(chan builder.SucceededBuild, 1)
+	failed := make(chan error, 1)
+	errored := make(chan error, 1)
+
+	go func() {
+		s, f, e := scheduler.builder.Attach(running, emitter, abort)
+		if e != nil {
+			errored <- e
+		} else if f != nil {
+			failed <- e
+		} else {
+			succeeded <- s
+		}
+	}()
+
+	select {
+	case build := <-succeeded:
+		log.Info("succeeded")
+
+		scheduler.complete(build, emitter)
+	case err := <-failed:
+		log.Error("failed", err)
+
+		running.Build.Status = builds.StatusFailed
+		scheduler.reportBuild(running.Build, log, emitter)
+	case err := <-errored:
+		log.Error("errored", err)
+
+		running.Build.Status = builds.StatusErrored
+		scheduler.reportBuild(running.Build, log, emitter)
+	case <-scheduler.draining:
+		return
+	}
+
+	scheduler.removeRunning(running)
+}
+
+func (scheduler *scheduler) complete(succeeded builder.SucceededBuild, emitter event.Emitter) {
 	abort := scheduler.abortChannel(succeeded.Build.Guid)
 
 	log := scheduler.logger.Session("complete", lager.Data{
 		"build": succeeded.Build,
 	})
 
-	finished, err := scheduler.builder.Complete(succeeded, abort)
+	finished, err := scheduler.builder.Complete(succeeded, emitter, abort)
 	if err != nil {
 		log.Error("failed", err)
 
 		succeeded.Build.Status = builds.StatusErrored
-		scheduler.reportBuild(succeeded.Build, log)
+		scheduler.reportBuild(succeeded.Build, log, emitter)
 	} else {
 		log.Info("completed")
 
 		finished.Status = builds.StatusSucceeded
-		scheduler.reportBuild(finished, log)
+		scheduler.reportBuild(finished, log, emitter)
 	}
 }
 
@@ -237,8 +256,12 @@ func (scheduler *scheduler) unregisterAbortChannel(guid string) {
 	delete(scheduler.aborting, guid)
 }
 
-func (scheduler *scheduler) reportBuild(build builds.Build, logger lager.Logger) {
-	if build.Callback == "" {
+func (scheduler *scheduler) reportBuild(build builds.Build, logger lager.Logger, emitter event.Emitter) {
+	emitter.EmitEvent(event.Status{
+		Status: build.Status,
+	})
+
+	if build.StatusCallback == "" {
 		return
 	}
 
@@ -247,7 +270,7 @@ func (scheduler *scheduler) reportBuild(build builds.Build, logger lager.Logger)
 	})
 
 	// this should always successfully parse (it's done via validation)
-	destination, _ := url.ParseRequestURI(build.Callback)
+	destination, _ := url.ParseRequestURI(build.StatusCallback)
 
 	payload, _ := json.Marshal(build)
 

@@ -22,6 +22,7 @@ type ContainerSpec struct {
 	BindMounts []BindMount
 	Network    string
 	Properties Properties
+	Env        []string
 }
 
 type BindMount struct {

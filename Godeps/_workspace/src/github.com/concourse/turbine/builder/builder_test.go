@@ -2,60 +2,65 @@ package builder_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"sync"
+	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/cloudfoundry-incubator/garden/client/fake_warden_client"
 	"github.com/cloudfoundry-incubator/garden/warden"
 	wfakes "github.com/cloudfoundry-incubator/garden/warden/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
-	"github.com/onsi/gomega/ghttp"
 
 	"github.com/concourse/turbine/api/builds"
 	. "github.com/concourse/turbine/builder"
+	"github.com/concourse/turbine/event"
+	efakes "github.com/concourse/turbine/event/fakes"
 	"github.com/concourse/turbine/resource"
 	resourcefakes "github.com/concourse/turbine/resource/fakes"
 )
 
 var _ = Describe("Builder", func() {
-	var tracker *resourcefakes.FakeTracker
-	var wardenClient *fake_warden_client.FakeClient
-	var builder Builder
+	var (
+		tracker      *resourcefakes.FakeTracker
+		wardenClient *fake_warden_client.FakeClient
 
-	var build builds.Build
+		emitter       *efakes.FakeEmitter
+		emittedEvents <-chan event.Event
 
-	websocketListener := func(buf io.WriteCloser) (string, *ghttp.Server) {
-		websocketEndpoint := ghttp.NewServer()
+		builder Builder
 
-		websocketEndpoint.AppendHandlers(
-			func(w http.ResponseWriter, r *http.Request) {
-				websocket.Server{Handler: func(conn *websocket.Conn) {
-					_, err := io.Copy(buf, conn)
-					Ω(err).ShouldNot(HaveOccurred())
-
-					buf.Close()
-				}}.ServeHTTP(w, r)
-			},
-		)
-
-		addr := websocketEndpoint.HTTPTestServer.Listener.Addr().String()
-
-		return "ws://" + addr, websocketEndpoint
-	}
+		build builds.Build
+	)
 
 	BeforeEach(func() {
 		tracker = new(resourcefakes.FakeTracker)
 		wardenClient = fake_warden_client.New()
+
+		emitter = new(efakes.FakeEmitter)
+
+		events := make(chan event.Event, 100)
+		emittedEvents = events
+
+		emitter.EmitEventStub = func(e event.Event) {
+			payload, err := json.Marshal(event.Message{e})
+			Ω(err).ShouldNot(HaveOccurred())
+
+			var duped event.Message
+			err = json.Unmarshal(payload, &duped)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			events <- duped.Event
+		}
+
 		builder = NewBuilder(tracker, wardenClient)
 
 		build = builds.Build{
+			EventsCallback: "some-events-callback",
+
 			Config: builds.Config{
 				Image: "some-rootfs",
 
@@ -114,7 +119,7 @@ var _ = Describe("Builder", func() {
 
 		JustBeforeEach(func() {
 			abort = make(chan struct{})
-			started, startErr = builder.Start(build, abort)
+			started, startErr = builder.Start(build, emitter, abort)
 		})
 
 		Context("when fetching the build's inputs succeeds", func() {
@@ -188,6 +193,31 @@ var _ = Describe("Builder", func() {
 				Ω(spec.Privileged).Should(BeFalse())
 			})
 
+			It("emits an initialize event followed by a start event", func() {
+				Eventually(emittedEvents).Should(Receive(Equal(event.Initialize{
+					BuildConfig: builds.Config{
+						Image: "some-rootfs",
+
+						Params: map[string]string{
+							"FOO": "bar",
+							"BAZ": "buzz",
+						},
+
+						Run: builds.RunConfig{
+							Path: "./bin/test",
+							Args: []string{"arg1", "arg2"},
+						},
+					},
+				})))
+
+				var ev event.Event
+				Eventually(emittedEvents).Should(Receive(&ev))
+
+				startEvent, ok := ev.(event.Start)
+				Ω(ok).Should(BeTrue())
+				Ω(startEvent.Time).Should(BeNumerically("~", time.Now().Unix()))
+			})
+
 			Context("when running the build's script fails", func() {
 				disaster := errors.New("oh no!")
 
@@ -224,14 +254,33 @@ var _ = Describe("Builder", func() {
 				Ω(allReleased).Should(ContainElement(resource2))
 			})
 
-			Context("when the build emits output", func() {
-				var logging *sync.WaitGroup
-
+			Context("when the inputs emit output", func() {
 				BeforeEach(func() {
-					logging = new(sync.WaitGroup)
+					tracker.InitStub = func(typ string, logs io.Writer, abort <-chan struct{}) (resource.Resource, error) {
+						go func() {
+							defer GinkgoRecover()
 
-					logging.Add(1)
+							_, err := logs.Write([]byte("hello from the resource"))
+							Ω(err).ShouldNot(HaveOccurred())
+						}()
 
+						return new(resourcefakes.FakeResource), nil
+					}
+				})
+
+				It("emits a build log event", func() {
+					Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+						Payload: "hello from the resource",
+						Origin: event.Origin{
+							Type: event.OriginTypeInput,
+							Name: "first-resource",
+						},
+					})))
+				})
+			})
+
+			Context("when the build emits output", func() {
+				BeforeEach(func() {
 					wardenClient.Connection.RunStub = func(handle string, spec warden.ProcessSpec, io warden.ProcessIO) (warden.Process, error) {
 						go func() {
 							defer GinkgoRecover()
@@ -241,85 +290,28 @@ var _ = Describe("Builder", func() {
 
 							_, err = io.Stderr.Write([]byte("some stderr data"))
 							Ω(err).ShouldNot(HaveOccurred())
-
-							logging.Done()
 						}()
 
 						return new(wfakes.FakeProcess), nil
 					}
 				})
 
-				Context("and a logs url is configured", func() {
-					var logBuffer *gbytes.Buffer
-					var websocketSink *ghttp.Server
+				It("emits a build log event", func() {
+					Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+						Payload: "some stdout data",
+						Origin: event.Origin{
+							Type: event.OriginTypeRun,
+							Name: "stdout",
+						},
+					})))
 
-					BeforeEach(func() {
-						logBuffer = gbytes.NewBuffer()
-
-						build.LogsURL, websocketSink = websocketListener(logBuffer)
-					})
-
-					Context("and the sink is listening", func() {
-						AfterEach(func() {
-							websocketSink.Close()
-						})
-
-						It("emits the build's output via websockets", func() {
-							logging.Wait()
-							started.LogStream.Close()
-
-							Eventually(logBuffer).Should(gbytes.Say("creating container from some-rootfs...\n"))
-							Eventually(logBuffer).Should(gbytes.Say("starting...\n"))
-
-							Eventually(logBuffer).Should(gbytes.Say("some stdout data"))
-							Eventually(logBuffer).Should(gbytes.Say("some stderr data"))
-						})
-
-						Context("and the resources emit logs", func() {
-							BeforeEach(func() {
-								tracker.InitStub = func(typ string, logs io.Writer, abort <-chan struct{}) (resource.Resource, error) {
-									logging.Add(1)
-
-									go func() {
-										defer GinkgoRecover()
-
-										_, err := logs.Write([]byte("hello from the resource"))
-										Ω(err).ShouldNot(HaveOccurred())
-
-										logging.Done()
-									}()
-
-									return new(resourcefakes.FakeResource), nil
-								}
-							})
-
-							It("emits them to the sink", func() {
-								logging.Wait()
-								started.LogStream.Close()
-
-								Eventually(logBuffer).Should(gbytes.Say("hello from the resource"))
-							})
-						})
-					})
-
-					Context("but the sink disconnects", func() {
-						BeforeEach(func() {
-							okHandler := websocketSink.GetHandler(0)
-
-							websocketSink.SetHandler(0, func(w http.ResponseWriter, r *http.Request) {
-								websocketSink.HTTPTestServer.CloseClientConnections()
-							})
-
-							websocketSink.AppendHandlers(okHandler)
-						})
-
-						It("retries until it is", func() {
-							logging.Wait()
-							started.LogStream.Close()
-
-							Eventually(logBuffer, 2).Should(gbytes.Say("starting...\n"))
-						})
-					})
+					Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+						Payload: "some stderr data",
+						Origin: event.Origin{
+							Type: event.OriginTypeRun,
+							Name: "stderr",
+						},
+					})))
 				})
 			})
 
@@ -381,7 +373,6 @@ var _ = Describe("Builder", func() {
 					Ω(started.ContainerHandle).Should(Equal("some-handle"))
 					Ω(started.ProcessID).Should(Equal(uint32(42)))
 					Ω(started.Process).ShouldNot(BeNil())
-					Ω(started.LogStream).ShouldNot(BeNil())
 				})
 			})
 
@@ -491,7 +482,7 @@ var _ = Describe("Builder", func() {
 
 		JustBeforeEach(func() {
 			abort = make(chan struct{})
-			succeeded, failed, attachErr = builder.Attach(runningBuild, abort)
+			succeeded, failed, attachErr = builder.Attach(runningBuild, emitter, abort)
 		})
 
 		BeforeEach(func() {
@@ -561,84 +552,55 @@ var _ = Describe("Builder", func() {
 		Context("when the build's process is not present", func() {
 			BeforeEach(func() {
 				runningBuild.Process = nil
-				wardenClient.Connection.AttachReturns(new(wfakes.FakeProcess), nil)
 			})
 
-			It("attaches to the build's process", func() {
-				Ω(wardenClient.Connection.AttachCallCount()).Should(Equal(1))
-
-				handle, pid, _ := wardenClient.Connection.AttachArgsForCall(0)
-				Ω(handle).Should(Equal("the-attached-container"))
-				Ω(pid).Should(Equal(uint32(42)))
-			})
-
-			Describe("streaming logs", func() {
-				var logBuffer *gbytes.Buffer
-
+			Context("and attaching succeeds", func() {
 				BeforeEach(func() {
-					logBuffer = gbytes.NewBuffer()
+					wardenClient.Connection.AttachReturns(new(wfakes.FakeProcess), nil)
 				})
 
-				writeToAttachedIO := func() {
+				It("attaches to the build's process", func() {
 					Ω(wardenClient.Connection.AttachCallCount()).Should(Equal(1))
 
-					handle, pid, io := wardenClient.Connection.AttachArgsForCall(0)
+					handle, pid, _ := wardenClient.Connection.AttachArgsForCall(0)
 					Ω(handle).Should(Equal("the-attached-container"))
 					Ω(pid).Should(Equal(uint32(42)))
-					Ω(io.Stdout).ShouldNot(BeNil())
-					Ω(io.Stderr).ShouldNot(BeNil())
-
-					_, err := fmt.Fprintf(io.Stdout, "stdout\n")
-					Ω(err).ShouldNot(HaveOccurred())
-
-					_, err = fmt.Fprintf(io.Stderr, "stderr\n")
-					Ω(err).ShouldNot(HaveOccurred())
-				}
-
-				Context("when the running build already has a log stream", func() {
-					BeforeEach(func() {
-						runningBuild.LogStream = logBuffer
-					})
-
-					It("emits the build's output to it", func() {
-						writeToAttachedIO()
-
-						Eventually(logBuffer).Should(gbytes.Say("stdout\n"))
-						Eventually(logBuffer).Should(gbytes.Say("stderr\n"))
-					})
 				})
 
-				Context("when a logs url is configured", func() {
-					var websocketSink *ghttp.Server
-
+				Context("and the build emits output", func() {
 					BeforeEach(func() {
-						runningBuild.Build.LogsURL, websocketSink = websocketListener(logBuffer)
+						wardenClient.Connection.AttachStub = func(handle string, pid uint32, io warden.ProcessIO) (warden.Process, error) {
+							Ω(handle).Should(Equal("the-attached-container"))
+							Ω(pid).Should(Equal(uint32(42)))
+							Ω(io.Stdout).ShouldNot(BeNil())
+							Ω(io.Stderr).ShouldNot(BeNil())
+
+							_, err := fmt.Fprintf(io.Stdout, "stdout\n")
+							Ω(err).ShouldNot(HaveOccurred())
+
+							_, err = fmt.Fprintf(io.Stderr, "stderr\n")
+							Ω(err).ShouldNot(HaveOccurred())
+
+							return new(wfakes.FakeProcess), nil
+						}
 					})
 
-					It("emits the build's output via websockets", func() {
-						writeToAttachedIO()
+					It("emits events for the output", func() {
+						Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+							Payload: "stdout\n",
+							Origin: event.Origin{
+								Type: event.OriginTypeRun,
+								Name: "stdout",
+							},
+						})))
 
-						Eventually(logBuffer).Should(gbytes.Say("stdout\n"))
-						Eventually(logBuffer).Should(gbytes.Say("stderr\n"))
-					})
-
-					Context("but the sink disconnects", func() {
-						BeforeEach(func() {
-							okHandler := websocketSink.GetHandler(0)
-
-							websocketSink.SetHandler(0, func(w http.ResponseWriter, r *http.Request) {
-								websocketSink.HTTPTestServer.CloseClientConnections()
-							})
-
-							websocketSink.AppendHandlers(okHandler)
-						})
-
-						It("retries", func() {
-							writeToAttachedIO()
-
-							Eventually(logBuffer, 2).Should(gbytes.Say("stdout\n"))
-							Eventually(logBuffer).Should(gbytes.Say("stderr\n"))
-						})
+						Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+							Payload: "stderr\n",
+							Origin: event.Origin{
+								Type: event.OriginTypeRun,
+								Name: "stderr",
+							},
+						})))
 					})
 				})
 			})
@@ -812,7 +774,7 @@ var _ = Describe("Builder", func() {
 
 		JustBeforeEach(func() {
 			abort = make(chan struct{})
-			finished, completeErr = builder.Complete(succeededBuild, abort)
+			finished, completeErr = builder.Complete(succeededBuild, emitter, abort)
 		})
 
 		BeforeEach(func() {
@@ -1028,12 +990,8 @@ var _ = Describe("Builder", func() {
 					})
 				})
 
-				Describe("logs emitted by output", func() {
-					var logBuffer *gbytes.Buffer
-
+				Describe("when the outputs emit logs", func() {
 					BeforeEach(func() {
-						logBuffer = gbytes.NewBuffer()
-
 						resource1.OutStub = func(src io.Reader, output builds.Output) (builds.Output, error) {
 							defer GinkgoRecover()
 
@@ -1046,42 +1004,14 @@ var _ = Describe("Builder", func() {
 						}
 					})
 
-					Context("when the running build already has a log stream", func() {
-						BeforeEach(func() {
-							succeededBuild.LogStream = logBuffer
-						})
-
-						It("emits the build's output to it", func() {
-							Ω(logBuffer).Should(gbytes.Say("hello from outputter"))
-						})
-					})
-
-					Context("when a logs url is configured", func() {
-						var websocketSink *ghttp.Server
-
-						BeforeEach(func() {
-							succeededBuild.Build.LogsURL, websocketSink = websocketListener(logBuffer)
-						})
-
-						It("emits the build's output via websockets", func() {
-							Eventually(logBuffer).Should(gbytes.Say("hello from outputter"))
-						})
-
-						Context("but the sink disconnects", func() {
-							BeforeEach(func() {
-								okHandler := websocketSink.GetHandler(0)
-
-								websocketSink.SetHandler(0, func(w http.ResponseWriter, r *http.Request) {
-									websocketSink.HTTPTestServer.CloseClientConnections()
-								})
-
-								websocketSink.AppendHandlers(okHandler)
-							})
-
-							It("retries until it is", func() {
-								Eventually(logBuffer, 2).Should(gbytes.Say("hello from outputter"))
-							})
-						})
+					It("emits output events", func() {
+						Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+							Payload: "hello from outputter",
+							Origin: event.Origin{
+								Type: event.OriginTypeOutput,
+								Name: "first-resource",
+							},
+						})))
 					})
 				})
 

@@ -2,76 +2,40 @@ package logwriter
 
 import (
 	"io"
-	"sync"
-	"time"
+	"unicode/utf8"
 
-	"code.google.com/p/go.net/websocket"
+	"github.com/concourse/turbine/event"
 )
 
 type writer struct {
-	url string
+	emitter event.Emitter
+	origin  event.Origin
 
-	conn  *websocket.Conn
-	connL *sync.Mutex
+	dangling []byte
 }
 
-func NewWriter(url string) io.WriteCloser {
+func NewWriter(emitter event.Emitter, origin event.Origin) io.Writer {
 	return &writer{
-		url: url,
-
-		connL: new(sync.Mutex),
+		emitter: emitter,
+		origin:  origin,
 	}
 }
 
 func (writer *writer) Write(data []byte) (int, error) {
-	for {
-		writer.connect()
+	text := append(writer.dangling, data...)
 
-		n, err := writer.conn.Write(data)
-		if err == nil {
-			return n, err
-		}
-
-		writer.close()
-
-		time.Sleep(time.Second)
-	}
-}
-
-func (writer *writer) Close() error {
-	return writer.close()
-}
-
-func (writer *writer) connect() {
-	writer.connL.Lock()
-	defer writer.connL.Unlock()
-
-	if writer.conn != nil {
-		return
+	checkEncoding, _ := utf8.DecodeLastRune(text)
+	if checkEncoding == utf8.RuneError {
+		writer.dangling = text
+		return len(data), nil
 	}
 
-	var err error
+	writer.dangling = nil
 
-	for {
-		writer.conn, err = websocket.Dial(writer.url, "", "http://0.0.0.0")
-		if err == nil {
-			writer.conn.PayloadType = websocket.BinaryFrame
-			return
-		}
+	writer.emitter.EmitEvent(event.Log{
+		Payload: string(text),
+		Origin:  writer.origin,
+	})
 
-		time.Sleep(time.Second)
-	}
-}
-
-func (writer *writer) close() error {
-	writer.connL.Lock()
-	defer writer.connL.Unlock()
-
-	if writer.conn != nil {
-		conn := writer.conn
-		writer.conn = nil
-		return conn.Close()
-	}
-
-	return nil
+	return len(data), nil
 }

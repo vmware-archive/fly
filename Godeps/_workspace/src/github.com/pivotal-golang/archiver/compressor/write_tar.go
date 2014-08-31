@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 func WriteTar(srcPath string, dest io.Writer) error {
@@ -23,11 +22,13 @@ func WriteTar(srcPath string, dest io.Writer) error {
 		}
 
 		var relative string
-		if strings.HasSuffix(srcPath, "/") {
+		if os.IsPathSeparator(srcPath[len(srcPath)-1]) {
 			relative, err = filepath.Rel(absPath, path)
 		} else {
 			relative, err = filepath.Rel(filepath.Dir(absPath), path)
 		}
+
+		relative = filepath.ToSlash(relative)
 
 		if err != nil {
 			return err
@@ -57,15 +58,15 @@ func addTarFile(path, name string, tw *tar.Writer) error {
 		return err
 	}
 
-	if fi.IsDir() && !strings.HasSuffix(name, "/") {
+	if fi.IsDir() && !os.IsPathSeparator(name[len(name)-1]) {
 		name = name + "/"
 	}
 
 	if hdr.Typeflag == tar.TypeReg && name == "." {
 		// archiving a single file
-		hdr.Name = filepath.Base(path)
+		hdr.Name = filepath.ToSlash(filepath.Base(path))
 	} else {
-		hdr.Name = name
+		hdr.Name = filepath.ToSlash(name)
 	}
 
 	if err := tw.WriteHeader(hdr); err != nil {
