@@ -72,4 +72,14 @@ var _ = Describe("Encoding & Decoding messages", func() {
 
 		itEncodesAndDecodesToItself()
 	})
+
+	Describe("Error", func() {
+		BeforeEach(func() {
+			event = Error{
+				Message: "oh no!",
+			}
+		})
+
+		itEncodesAndDecodesToItself()
+	})
 })

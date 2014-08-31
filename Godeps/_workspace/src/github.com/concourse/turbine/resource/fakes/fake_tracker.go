@@ -5,41 +5,41 @@ import (
 	"io"
 	"sync"
 
-	. "github.com/concourse/turbine/resource"
+	"github.com/concourse/turbine/resource"
 )
 
 type FakeTracker struct {
-	InitStub        func(typ string, logs io.Writer, abort <-chan struct{}) (Resource, error)
+	InitStub        func(typ string, logs io.Writer, abort <-chan struct{}) (resource.Resource, error)
 	initMutex       sync.RWMutex
 	initArgsForCall []struct {
-		arg1 string
-		arg2 io.Writer
-		arg3 <-chan struct{}
+		typ   string
+		logs  io.Writer
+		abort <-chan struct{}
 	}
 	initReturns struct {
-		result1 Resource
+		result1 resource.Resource
 		result2 error
 	}
-	ReleaseStub        func(Resource) error
+	ReleaseStub        func(resource.Resource) error
 	releaseMutex       sync.RWMutex
 	releaseArgsForCall []struct {
-		arg1 Resource
+		arg1 resource.Resource
 	}
 	releaseReturns struct {
 		result1 error
 	}
 }
 
-func (fake *FakeTracker) Init(arg1 string, arg2 io.Writer, arg3 <-chan struct{}) (Resource, error) {
+func (fake *FakeTracker) Init(typ string, logs io.Writer, abort <-chan struct{}) (resource.Resource, error) {
 	fake.initMutex.Lock()
-	defer fake.initMutex.Unlock()
 	fake.initArgsForCall = append(fake.initArgsForCall, struct {
-		arg1 string
-		arg2 io.Writer
-		arg3 <-chan struct{}
-	}{arg1, arg2, arg3})
+		typ   string
+		logs  io.Writer
+		abort <-chan struct{}
+	}{typ, logs, abort})
+	fake.initMutex.Unlock()
 	if fake.InitStub != nil {
-		return fake.InitStub(arg1, arg2, arg3)
+		return fake.InitStub(typ, logs, abort)
 	} else {
 		return fake.initReturns.result1, fake.initReturns.result2
 	}
@@ -54,22 +54,23 @@ func (fake *FakeTracker) InitCallCount() int {
 func (fake *FakeTracker) InitArgsForCall(i int) (string, io.Writer, <-chan struct{}) {
 	fake.initMutex.RLock()
 	defer fake.initMutex.RUnlock()
-	return fake.initArgsForCall[i].arg1, fake.initArgsForCall[i].arg2, fake.initArgsForCall[i].arg3
+	return fake.initArgsForCall[i].typ, fake.initArgsForCall[i].logs, fake.initArgsForCall[i].abort
 }
 
-func (fake *FakeTracker) InitReturns(result1 Resource, result2 error) {
+func (fake *FakeTracker) InitReturns(result1 resource.Resource, result2 error) {
+	fake.InitStub = nil
 	fake.initReturns = struct {
-		result1 Resource
+		result1 resource.Resource
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeTracker) Release(arg1 Resource) error {
+func (fake *FakeTracker) Release(arg1 resource.Resource) error {
 	fake.releaseMutex.Lock()
-	defer fake.releaseMutex.Unlock()
 	fake.releaseArgsForCall = append(fake.releaseArgsForCall, struct {
-		arg1 Resource
+		arg1 resource.Resource
 	}{arg1})
+	fake.releaseMutex.Unlock()
 	if fake.ReleaseStub != nil {
 		return fake.ReleaseStub(arg1)
 	} else {
@@ -83,16 +84,17 @@ func (fake *FakeTracker) ReleaseCallCount() int {
 	return len(fake.releaseArgsForCall)
 }
 
-func (fake *FakeTracker) ReleaseArgsForCall(i int) Resource {
+func (fake *FakeTracker) ReleaseArgsForCall(i int) resource.Resource {
 	fake.releaseMutex.RLock()
 	defer fake.releaseMutex.RUnlock()
 	return fake.releaseArgsForCall[i].arg1
 }
 
 func (fake *FakeTracker) ReleaseReturns(result1 error) {
+	fake.ReleaseStub = nil
 	fake.releaseReturns = struct {
 		result1 error
 	}{result1}
 }
 
-var _ Tracker = new(FakeTracker)
+var _ resource.Tracker = new(FakeTracker)

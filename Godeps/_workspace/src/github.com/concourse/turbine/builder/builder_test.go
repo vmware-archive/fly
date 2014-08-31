@@ -228,6 +228,12 @@ var _ = Describe("Builder", func() {
 				It("returns the error", func() {
 					Ω(startErr).Should(Equal(disaster))
 				})
+
+				It("emits an error event", func() {
+					Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+						Message: "failed to run: oh no!",
+					})))
+				})
 			})
 
 			Context("when privileged is true", func() {
@@ -254,7 +260,7 @@ var _ = Describe("Builder", func() {
 				Ω(allReleased).Should(ContainElement(resource2))
 			})
 
-			Context("when the inputs emit output", func() {
+			Context("when the inputs emit logs", func() {
 				BeforeEach(func() {
 					tracker.InitStub = func(typ string, logs io.Writer, abort <-chan struct{}) (resource.Resource, error) {
 						go func() {
@@ -279,7 +285,7 @@ var _ = Describe("Builder", func() {
 				})
 			})
 
-			Context("when the build emits output", func() {
+			Context("when the build emits logs", func() {
 				BeforeEach(func() {
 					wardenClient.Connection.RunStub = func(handle string, spec warden.ProcessSpec, io warden.ProcessIO) (warden.Process, error) {
 						go func() {
@@ -343,6 +349,12 @@ var _ = Describe("Builder", func() {
 
 				It("returns the error", func() {
 					Ω(startErr).Should(Equal(disaster))
+				})
+
+				It("emits an error event", func() {
+					Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+						Message: "failed to create container: oh no!",
+					})))
 				})
 			})
 
@@ -440,6 +452,24 @@ var _ = Describe("Builder", func() {
 			})
 		})
 
+		Context("when initializing an input resource fails", func() {
+			disaster := errors.New("oh no!")
+
+			BeforeEach(func() {
+				tracker.InitReturns(nil, disaster)
+			})
+
+			It("returns the error", func() {
+				Ω(startErr).Should(Equal(disaster))
+			})
+
+			It("emits an error event", func() {
+				Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+					Message: "failed to initialize first-resource: oh no!",
+				})))
+			})
+		})
+
 		Context("when fetching the source fails", func() {
 			disaster := errors.New("oh no!")
 
@@ -449,6 +479,12 @@ var _ = Describe("Builder", func() {
 
 			It("returns the error", func() {
 				Ω(startErr).Should(Equal(disaster))
+			})
+
+			It("emits an error event", func() {
+				Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+					Message: "failed to fetch first-resource: oh no!",
+				})))
 			})
 		})
 
@@ -468,6 +504,12 @@ var _ = Describe("Builder", func() {
 
 			It("returns the error", func() {
 				Ω(startErr).Should(Equal(disaster))
+			})
+
+			It("emits an error event", func() {
+				Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+					Message: "failed to stream in resources: oh no!",
+				})))
 			})
 		})
 	})
@@ -546,6 +588,12 @@ var _ = Describe("Builder", func() {
 				It("returns an error", func() {
 					Ω(attachErr).Should(HaveOccurred())
 				})
+
+				It("emits an error event", func() {
+					Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+						Message: "failed to lookup container: container not found: the-attached-container",
+					})))
+				})
 			})
 		})
 
@@ -615,6 +663,12 @@ var _ = Describe("Builder", func() {
 				It("returns the error", func() {
 					Ω(attachErr).Should(Equal(disaster))
 				})
+
+				It("emits an error event", func() {
+					Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+						Message: "failed to attach to process: oh no!",
+					})))
+				})
 			})
 		})
 
@@ -649,6 +703,16 @@ var _ = Describe("Builder", func() {
 				handle, kill := wardenClient.Connection.StopArgsForCall(0)
 				Ω(handle).Should(Equal("the-attached-container"))
 				Ω(kill).Should(BeFalse())
+			})
+
+			It("returns an error", func() {
+				Ω(attachErr).Should(HaveOccurred())
+			})
+
+			It("emits an error event", func() {
+				Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+					Message: "result unknown: build aborted",
+				})))
 			})
 		})
 
@@ -973,8 +1037,14 @@ var _ = Describe("Builder", func() {
 						resource1.OutReturns(builds.Output{}, disaster)
 					})
 
-					It("sends the error result", func() {
+					It("returns an error", func() {
 						Ω(completeErr).Should(Equal(disaster))
+					})
+
+					It("emits an error event", func() {
+						Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+							Message: "outputs failed: oh no!",
+						})))
 					})
 
 					It("releases each resource", func() {

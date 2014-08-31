@@ -26,6 +26,8 @@ type websocketEmitter struct {
 
 	conn  *websocket.Conn
 	connL *sync.Mutex
+
+	writeL *sync.Mutex
 }
 
 func NewWebSocketEmitter(logURL string) Emitter {
@@ -41,6 +43,8 @@ func NewWebSocketEmitter(logURL string) Emitter {
 		},
 
 		connL: new(sync.Mutex),
+
+		writeL: new(sync.Mutex),
 	}
 }
 
@@ -48,9 +52,14 @@ func (e *websocketEmitter) EmitEvent(event Event) {
 	for {
 		e.connect()
 
+		e.writeL.Lock()
+
 		err := e.conn.WriteJSON(Message{
 			Event: event,
 		})
+
+		e.writeL.Unlock()
+
 		if err == nil {
 			break
 		}

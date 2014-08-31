@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/concourse/turbine/api/builds"
-	. "github.com/concourse/turbine/resource"
+	"github.com/concourse/turbine/resource"
 )
 
 type FakeResource struct {
@@ -44,10 +44,10 @@ type FakeResource struct {
 
 func (fake *FakeResource) In(arg1 builds.Input) (io.Reader, builds.Input, builds.Config, error) {
 	fake.inMutex.Lock()
-	defer fake.inMutex.Unlock()
 	fake.inArgsForCall = append(fake.inArgsForCall, struct {
 		arg1 builds.Input
 	}{arg1})
+	fake.inMutex.Unlock()
 	if fake.InStub != nil {
 		return fake.InStub(arg1)
 	} else {
@@ -68,6 +68,7 @@ func (fake *FakeResource) InArgsForCall(i int) builds.Input {
 }
 
 func (fake *FakeResource) InReturns(result1 io.Reader, result2 builds.Input, result3 builds.Config, result4 error) {
+	fake.InStub = nil
 	fake.inReturns = struct {
 		result1 io.Reader
 		result2 builds.Input
@@ -78,11 +79,11 @@ func (fake *FakeResource) InReturns(result1 io.Reader, result2 builds.Input, res
 
 func (fake *FakeResource) Out(arg1 io.Reader, arg2 builds.Output) (builds.Output, error) {
 	fake.outMutex.Lock()
-	defer fake.outMutex.Unlock()
 	fake.outArgsForCall = append(fake.outArgsForCall, struct {
 		arg1 io.Reader
 		arg2 builds.Output
 	}{arg1, arg2})
+	fake.outMutex.Unlock()
 	if fake.OutStub != nil {
 		return fake.OutStub(arg1, arg2)
 	} else {
@@ -103,6 +104,7 @@ func (fake *FakeResource) OutArgsForCall(i int) (io.Reader, builds.Output) {
 }
 
 func (fake *FakeResource) OutReturns(result1 builds.Output, result2 error) {
+	fake.OutStub = nil
 	fake.outReturns = struct {
 		result1 builds.Output
 		result2 error
@@ -111,10 +113,10 @@ func (fake *FakeResource) OutReturns(result1 builds.Output, result2 error) {
 
 func (fake *FakeResource) Check(arg1 builds.Input) ([]builds.Version, error) {
 	fake.checkMutex.Lock()
-	defer fake.checkMutex.Unlock()
 	fake.checkArgsForCall = append(fake.checkArgsForCall, struct {
 		arg1 builds.Input
 	}{arg1})
+	fake.checkMutex.Unlock()
 	if fake.CheckStub != nil {
 		return fake.CheckStub(arg1)
 	} else {
@@ -135,10 +137,11 @@ func (fake *FakeResource) CheckArgsForCall(i int) builds.Input {
 }
 
 func (fake *FakeResource) CheckReturns(result1 []builds.Version, result2 error) {
+	fake.CheckStub = nil
 	fake.checkReturns = struct {
 		result1 []builds.Version
 		result2 error
 	}{result1, result2}
 }
 
-var _ Resource = new(FakeResource)
+var _ resource.Resource = new(FakeResource)

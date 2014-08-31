@@ -12,5 +12,5 @@ const (
 	EventTypeStatus     EventType = "status"
 	EventTypeInitialize EventType = "initialize"
 	EventTypeStart      EventType = "start"
-	EventTypeErrored    EventType = "errored"
+	EventTypeError      EventType = "error"
 )

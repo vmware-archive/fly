@@ -66,14 +66,14 @@ func (builder *builder) Start(build builds.Build, emitter event.Emitter, abort <
 
 		resource, err := builder.tracker.Init(input.Type, eventLog, abort)
 		if err != nil {
-			return RunningBuild{}, err
+			return RunningBuild{}, builder.emitError(emitter, "failed to initialize "+input.Name, err)
 		}
 
 		defer builder.tracker.Release(resource)
 
 		tarStream, computedInput, buildConfig, err := resource.In(input)
 		if err != nil {
-			return RunningBuild{}, err
+			return RunningBuild{}, builder.emitError(emitter, "failed to fetch "+input.Name, err)
 		}
 
 		build.Inputs[i] = computedInput
@@ -85,17 +85,17 @@ func (builder *builder) Start(build builds.Build, emitter event.Emitter, abort <
 
 	container, err := builder.createBuildContainer(build.Config, emitter)
 	if err != nil {
-		return RunningBuild{}, err
+		return RunningBuild{}, builder.emitError(emitter, "failed to create container", err)
 	}
 
 	err = builder.streamInResources(container, resources, build.Config.Paths)
 	if err != nil {
-		return RunningBuild{}, err
+		return RunningBuild{}, builder.emitError(emitter, "failed to stream in resources", err)
 	}
 
 	process, err := builder.runBuild(container, build.Privileged, build.Config, emitter)
 	if err != nil {
-		return RunningBuild{}, err
+		return RunningBuild{}, builder.emitError(emitter, "failed to run", err)
 	}
 
 	return RunningBuild{
@@ -113,7 +113,7 @@ func (builder *builder) Attach(running RunningBuild, emitter event.Emitter, abor
 	if running.Container == nil {
 		container, err := builder.wardenClient.Lookup(running.ContainerHandle)
 		if err != nil {
-			return SucceededBuild{}, nil, err
+			return SucceededBuild{}, nil, builder.emitError(emitter, "failed to lookup container", err)
 		}
 
 		running.Container = container
@@ -125,7 +125,7 @@ func (builder *builder) Attach(running RunningBuild, emitter event.Emitter, abor
 			emitterProcessIO(emitter),
 		)
 		if err != nil {
-			return SucceededBuild{}, nil, err
+			return SucceededBuild{}, nil, builder.emitError(emitter, "failed to attach to process", err)
 		}
 
 		running.Process = process
@@ -133,7 +133,7 @@ func (builder *builder) Attach(running RunningBuild, emitter event.Emitter, abor
 
 	status, err := builder.waitForRunToEnd(running, abort)
 	if err != nil {
-		return SucceededBuild{}, nil, err
+		return SucceededBuild{}, nil, builder.emitError(emitter, "result unknown", err)
 	}
 
 	if status != 0 {
@@ -149,7 +149,7 @@ func (builder *builder) Attach(running RunningBuild, emitter event.Emitter, abor
 func (builder *builder) Complete(succeeded SucceededBuild, emitter event.Emitter, abort <-chan struct{}) (builds.Build, error) {
 	outputs, err := builder.performOutputs(succeeded.Container, succeeded.Build, emitter, abort)
 	if err != nil {
-		return builds.Build{}, err
+		return builds.Build{}, builder.emitError(emitter, "outputs failed", err)
 	}
 
 	succeeded.Build.Outputs = outputs
@@ -164,6 +164,14 @@ func (builder *builder) Hijack(running RunningBuild, spec warden.ProcessSpec, io
 	}
 
 	return container.Run(spec, io)
+}
+
+func (builder *builder) emitError(emitter event.Emitter, message string, err error) error {
+	emitter.EmitEvent(event.Error{
+		Message: fmt.Sprintf("%s: %s", message, err),
+	})
+
+	return err
 }
 
 func (builder *builder) createBuildContainer(
