@@ -24,35 +24,35 @@
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/builds",
-			"Rev": "ef24e8837e34fe9bf4e490a444c8790ea7680af5"
+			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/hijack",
-			"Rev": "ef24e8837e34fe9bf4e490a444c8790ea7680af5"
+			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/builder",
-			"Rev": "ef24e8837e34fe9bf4e490a444c8790ea7680af5"
+			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/config",
-			"Rev": "ef24e8837e34fe9bf4e490a444c8790ea7680af5"
+			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/event",
-			"Rev": "ef24e8837e34fe9bf4e490a444c8790ea7680af5"
+			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/logwriter",
-			"Rev": "ef24e8837e34fe9bf4e490a444c8790ea7680af5"
+			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/resource",
-			"Rev": "ef24e8837e34fe9bf4e490a444c8790ea7680af5"
+			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/scheduler",
-			"Rev": "ef24e8837e34fe9bf4e490a444c8790ea7680af5"
+			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
 		},
 		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",

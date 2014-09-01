@@ -53,6 +53,10 @@ func (m *Message) UnmarshalJSON(bytes []byte) error {
 		event := Start{}
 		err = json.Unmarshal(*envelope.EventPayload, &event)
 		m.Event = event
+	case EventTypeFinish:
+		event := Finish{}
+		err = json.Unmarshal(*envelope.EventPayload, &event)
+		m.Event = event
 	case EventTypeError:
 		event := Error{}
 		err = json.Unmarshal(*envelope.EventPayload, &event)

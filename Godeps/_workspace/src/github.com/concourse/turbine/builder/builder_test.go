@@ -754,6 +754,19 @@ var _ = Describe("Builder", func() {
 				Ω(succeeded).Should(BeZero())
 				Ω(failed).ShouldNot(BeZero())
 			})
+
+			It("emits a Finish event", func() {
+				var finishEvent event.Finish
+				Eventually(events.Sent).Should(ContainElement(BeAssignableToTypeOf(finishEvent)))
+
+				for _, ev := range events.Sent() {
+					switch finishEvent := ev.(type) {
+					case event.Finish:
+						Ω(finishEvent.ExitStatus).Should(Equal(2))
+						Ω(finishEvent.Time).Should(BeNumerically("~", time.Now().Unix()))
+					}
+				}
+			})
 		})
 	})
 

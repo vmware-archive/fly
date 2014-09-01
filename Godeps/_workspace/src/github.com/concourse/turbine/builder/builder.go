@@ -85,7 +85,11 @@ func (builder *builder) Start(build builds.Build, emitter event.Emitter, abort <
 		resources[input.Name] = tarStream
 	}
 
-	container, err := builder.createBuildContainer(build.Config, emitter)
+	emitter.EmitEvent(event.Initialize{
+		BuildConfig: build.Config,
+	})
+
+	container, err := builder.createBuildContainer(build.Config)
 	if err != nil {
 		return RunningBuild{}, builder.emitError(emitter, "failed to create container", err)
 	}
@@ -95,7 +99,16 @@ func (builder *builder) Start(build builds.Build, emitter event.Emitter, abort <
 		return RunningBuild{}, builder.emitError(emitter, "failed to stream in resources", err)
 	}
 
-	process, err := builder.runBuild(container, build.Privileged, build.Config, emitter)
+	emitter.EmitEvent(event.Start{
+		Time: time.Now().Unix(),
+	})
+
+	process, err := builder.runBuild(
+		container,
+		emitterProcessIO(emitter),
+		build.Privileged,
+		build.Config,
+	)
 	if err != nil {
 		return RunningBuild{}, builder.emitError(emitter, "failed to run", err)
 	}
@@ -138,6 +151,11 @@ func (builder *builder) Attach(running RunningBuild, emitter event.Emitter, abor
 		return SucceededBuild{}, nil, builder.emitError(emitter, "result unknown", err)
 	}
 
+	emitter.EmitEvent(event.Finish{
+		Time:       time.Now().Unix(),
+		ExitStatus: status,
+	})
+
 	if status != 0 {
 		return SucceededBuild{}, fmt.Errorf("exit status %d", status), nil
 	}
@@ -178,17 +196,10 @@ func (builder *builder) emitError(emitter event.Emitter, message string, err err
 
 func (builder *builder) createBuildContainer(
 	buildConfig builds.Config,
-	emitter event.Emitter,
 ) (warden.Container, error) {
-	emitter.EmitEvent(event.Initialize{
-		BuildConfig: buildConfig,
-	})
-
-	containerSpec := warden.ContainerSpec{
+	return builder.wardenClient.Create(warden.ContainerSpec{
 		RootFSPath: buildConfig.Image,
-	}
-
-	return builder.wardenClient.Create(containerSpec)
+	})
 }
 
 func (builder *builder) streamInResources(
@@ -213,14 +224,10 @@ func (builder *builder) streamInResources(
 
 func (builder *builder) runBuild(
 	container warden.Container,
+	processIO warden.ProcessIO,
 	privileged bool,
 	buildConfig builds.Config,
-	emitter event.Emitter,
 ) (warden.Process, error) {
-	emitter.EmitEvent(event.Start{
-		Time: time.Now().Unix(),
-	})
-
 	env := []string{}
 	for n, v := range buildConfig.Params {
 		env = append(env, n+"="+v)
@@ -235,7 +242,7 @@ func (builder *builder) runBuild(
 		TTY: &warden.TTYSpec{},
 
 		Privileged: privileged,
-	}, emitterProcessIO(emitter))
+	}, processIO)
 }
 
 func (builder *builder) waitForRunToEnd(

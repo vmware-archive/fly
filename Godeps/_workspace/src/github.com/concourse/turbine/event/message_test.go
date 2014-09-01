@@ -73,6 +73,17 @@ var _ = Describe("Encoding & Decoding messages", func() {
 		itEncodesAndDecodesToItself()
 	})
 
+	Describe("Finish", func() {
+		BeforeEach(func() {
+			event = Finish{
+				Time:       time.Now().Unix(),
+				ExitStatus: 42,
+			}
+		})
+
+		itEncodesAndDecodesToItself()
+	})
+
 	Describe("Error", func() {
 		BeforeEach(func() {
 			event = Error{

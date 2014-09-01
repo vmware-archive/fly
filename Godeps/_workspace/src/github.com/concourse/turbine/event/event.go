@@ -12,6 +12,7 @@ const (
 	EventTypeStatus     EventType = "status"
 	EventTypeInitialize EventType = "initialize"
 	EventTypeStart      EventType = "start"
+	EventTypeFinish     EventType = "finish"
 	EventTypeError      EventType = "error"
 	EventTypeInput      EventType = "input"
 	EventTypeOutput     EventType = "output"
