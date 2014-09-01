@@ -35,8 +35,6 @@ var _ = Describe("Resource Out", func() {
 			Source: builds.Source{"some": "source"},
 
 			Version: builds.Version{"original": "version"},
-
-			SourcePath: "some-resource",
 		}
 
 		outScriptStdout = "{}"

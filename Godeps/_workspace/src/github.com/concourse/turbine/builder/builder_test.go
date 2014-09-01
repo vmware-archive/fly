@@ -2,11 +2,11 @@ package builder_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	"github.com/cloudfoundry-incubator/garden/client/fake_warden_client"
@@ -28,8 +28,8 @@ var _ = Describe("Builder", func() {
 		tracker      *resourcefakes.FakeTracker
 		wardenClient *fake_warden_client.FakeClient
 
-		emitter       *efakes.FakeEmitter
-		emittedEvents <-chan event.Event
+		emitter *efakes.FakeEmitter
+		events  *eventLog
 
 		builder Builder
 
@@ -42,19 +42,8 @@ var _ = Describe("Builder", func() {
 
 		emitter = new(efakes.FakeEmitter)
 
-		events := make(chan event.Event, 100)
-		emittedEvents = events
-
-		emitter.EmitEventStub = func(e event.Event) {
-			payload, err := json.Marshal(event.Message{e})
-			Ω(err).ShouldNot(HaveOccurred())
-
-			var duped event.Message
-			err = json.Unmarshal(payload, &duped)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			events <- duped.Event
-		}
+		events = &eventLog{}
+		emitter.EmitEventStub = events.Add
 
 		builder = NewBuilder(tracker, wardenClient)
 
@@ -143,6 +132,26 @@ var _ = Describe("Builder", func() {
 				Ω(startErr).ShouldNot(HaveOccurred())
 			})
 
+			It("emits input events", func() {
+				Eventually(events.Sent).Should(ContainElement(event.Input{
+					Input: builds.Input{
+						Name:     "first-resource",
+						Type:     "raw",
+						Version:  builds.Version{"key": "version-1"},
+						Metadata: []builds.MetadataField{{Name: "key", Value: "meta-1"}},
+					},
+				}))
+
+				Eventually(events.Sent).Should(ContainElement(event.Input{
+					Input: builds.Input{
+						Name:     "second-resource",
+						Type:     "raw",
+						Version:  builds.Version{"key": "version-2"},
+						Metadata: []builds.MetadataField{{Name: "key", Value: "meta-2"}},
+					},
+				}))
+			})
+
 			It("creates a container with the specified image", func() {
 				created := wardenClient.Connection.CreateArgsForCall(0)
 				Ω(created.RootFSPath).Should(Equal("some-rootfs"))
@@ -194,7 +203,7 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("emits an initialize event followed by a start event", func() {
-				Eventually(emittedEvents).Should(Receive(Equal(event.Initialize{
+				Eventually(events.Sent).Should(ContainElement(event.Initialize{
 					BuildConfig: builds.Config{
 						Image: "some-rootfs",
 
@@ -208,14 +217,17 @@ var _ = Describe("Builder", func() {
 							Args: []string{"arg1", "arg2"},
 						},
 					},
-				})))
+				}))
 
-				var ev event.Event
-				Eventually(emittedEvents).Should(Receive(&ev))
+				var startEvent event.Start
+				Eventually(events.Sent).Should(ContainElement(BeAssignableToTypeOf(startEvent)))
 
-				startEvent, ok := ev.(event.Start)
-				Ω(ok).Should(BeTrue())
-				Ω(startEvent.Time).Should(BeNumerically("~", time.Now().Unix()))
+				for _, ev := range events.Sent() {
+					switch startEvent := ev.(type) {
+					case event.Start:
+						Ω(startEvent.Time).Should(BeNumerically("~", time.Now().Unix()))
+					}
+				}
 			})
 
 			Context("when running the build's script fails", func() {
@@ -230,9 +242,9 @@ var _ = Describe("Builder", func() {
 				})
 
 				It("emits an error event", func() {
-					Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+					Eventually(events.Sent).Should(ContainElement(event.Error{
 						Message: "failed to run: oh no!",
-					})))
+					}))
 				})
 			})
 
@@ -275,13 +287,13 @@ var _ = Describe("Builder", func() {
 				})
 
 				It("emits a build log event", func() {
-					Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+					Eventually(events.Sent).Should(ContainElement(event.Log{
 						Payload: "hello from the resource",
 						Origin: event.Origin{
 							Type: event.OriginTypeInput,
 							Name: "first-resource",
 						},
-					})))
+					}))
 				})
 			})
 
@@ -303,21 +315,21 @@ var _ = Describe("Builder", func() {
 				})
 
 				It("emits a build log event", func() {
-					Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+					Eventually(events.Sent).Should(ContainElement(event.Log{
 						Payload: "some stdout data",
 						Origin: event.Origin{
 							Type: event.OriginTypeRun,
 							Name: "stdout",
 						},
-					})))
+					}))
 
-					Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+					Eventually(events.Sent).Should(ContainElement(event.Log{
 						Payload: "some stderr data",
 						Origin: event.Origin{
 							Type: event.OriginTypeRun,
 							Name: "stderr",
 						},
-					})))
+					}))
 				})
 			})
 
@@ -352,9 +364,9 @@ var _ = Describe("Builder", func() {
 				})
 
 				It("emits an error event", func() {
-					Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+					Eventually(events.Sent).Should(ContainElement(event.Error{
 						Message: "failed to create container: oh no!",
-					})))
+					}))
 				})
 			})
 
@@ -464,9 +476,9 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("emits an error event", func() {
-				Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+				Eventually(events.Sent).Should(ContainElement(event.Error{
 					Message: "failed to initialize first-resource: oh no!",
-				})))
+				}))
 			})
 		})
 
@@ -482,9 +494,9 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("emits an error event", func() {
-				Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+				Eventually(events.Sent).Should(ContainElement(event.Error{
 					Message: "failed to fetch first-resource: oh no!",
-				})))
+				}))
 			})
 		})
 
@@ -507,9 +519,9 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("emits an error event", func() {
-				Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+				Eventually(events.Sent).Should(ContainElement(event.Error{
 					Message: "failed to stream in resources: oh no!",
-				})))
+				}))
 			})
 		})
 	})
@@ -590,9 +602,9 @@ var _ = Describe("Builder", func() {
 				})
 
 				It("emits an error event", func() {
-					Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+					Eventually(events.Sent).Should(ContainElement(event.Error{
 						Message: "failed to lookup container: container not found: the-attached-container",
-					})))
+					}))
 				})
 			})
 		})
@@ -615,7 +627,7 @@ var _ = Describe("Builder", func() {
 					Ω(pid).Should(Equal(uint32(42)))
 				})
 
-				Context("and the build emits output", func() {
+				Context("and the build emits logs", func() {
 					BeforeEach(func() {
 						wardenClient.Connection.AttachStub = func(handle string, pid uint32, io warden.ProcessIO) (warden.Process, error) {
 							Ω(handle).Should(Equal("the-attached-container"))
@@ -633,22 +645,22 @@ var _ = Describe("Builder", func() {
 						}
 					})
 
-					It("emits events for the output", func() {
-						Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+					It("emits log events for stdout/stderr", func() {
+						Eventually(events.Sent).Should(ContainElement(event.Log{
 							Payload: "stdout\n",
 							Origin: event.Origin{
 								Type: event.OriginTypeRun,
 								Name: "stdout",
 							},
-						})))
+						}))
 
-						Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+						Eventually(events.Sent).Should(ContainElement(event.Log{
 							Payload: "stderr\n",
 							Origin: event.Origin{
 								Type: event.OriginTypeRun,
 								Name: "stderr",
 							},
-						})))
+						}))
 					})
 				})
 			})
@@ -665,9 +677,9 @@ var _ = Describe("Builder", func() {
 				})
 
 				It("emits an error event", func() {
-					Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+					Eventually(events.Sent).Should(ContainElement(event.Error{
 						Message: "failed to attach to process: oh no!",
-					})))
+					}))
 				})
 			})
 		})
@@ -710,9 +722,9 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("emits an error event", func() {
-				Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+				Eventually(events.Sent).Should(ContainElement(event.Error{
 					Message: "result unknown: build aborted",
-				})))
+				}))
 			})
 		})
 
@@ -1017,6 +1029,43 @@ var _ = Describe("Builder", func() {
 						}))
 					})
 
+					It("emits output events for each explicit output", func() {
+						Eventually(events.Sent).Should(ContainElement(event.Output{
+							Output: builds.Output{
+								Name:     "first-resource",
+								Type:     "git",
+								Source:   builds.Source{"uri": "http://first-uri"},
+								Params:   builds.Params{"key": "param-1"},
+								Version:  builds.Version{"key": "out-version-1"},
+								Metadata: []builds.MetadataField{{Name: "name", Value: "out-meta-1"}},
+							},
+						}))
+
+						Eventually(events.Sent).Should(ContainElement(event.Output{
+							Output: builds.Output{
+								Name:     "extra-output",
+								Type:     "git",
+								Source:   builds.Source{"uri": "http://extra-uri"},
+								Params:   builds.Params{"key": "param-2"},
+								Version:  builds.Version{"key": "out-version-3"},
+								Metadata: []builds.MetadataField{{Name: "name", Value: "out-meta-3"}},
+							},
+						}))
+
+						Consistently(events.Sent).ShouldNot(ContainElement(event.Output{
+							Output: builds.Output{
+								Name:    "second-resource",
+								Type:    "raw",
+								Source:  builds.Source{"uri": "in-source-2"},
+								Params:  nil,
+								Version: builds.Version{"key": "in-version-2"},
+								Metadata: []builds.MetadataField{
+									{Name: "meta2", Value: "value2"},
+								},
+							},
+						}))
+					})
+
 					It("releases each resource", func() {
 						Ω(tracker.ReleaseCallCount()).Should(Equal(2))
 
@@ -1042,9 +1091,9 @@ var _ = Describe("Builder", func() {
 					})
 
 					It("emits an error event", func() {
-						Eventually(emittedEvents).Should(Receive(Equal(event.Error{
+						Eventually(events.Sent).Should(ContainElement(event.Error{
 							Message: "outputs failed: oh no!",
-						})))
+						}))
 					})
 
 					It("releases each resource", func() {
@@ -1075,13 +1124,13 @@ var _ = Describe("Builder", func() {
 					})
 
 					It("emits output events", func() {
-						Eventually(emittedEvents).Should(Receive(Equal(event.Log{
+						Eventually(events.Sent).Should(ContainElement(event.Log{
 							Payload: "hello from outputter",
 							Origin: event.Origin{
 								Type: event.OriginTypeOutput,
 								Name: "first-resource",
 							},
-						})))
+						}))
 					})
 				})
 
@@ -1119,3 +1168,22 @@ var _ = Describe("Builder", func() {
 		})
 	})
 })
+
+type eventLog struct {
+	events  []event.Event
+	eventsL sync.RWMutex
+}
+
+func (l *eventLog) Add(e event.Event) {
+	l.eventsL.Lock()
+	l.events = append(l.events, e)
+	l.eventsL.Unlock()
+}
+
+func (l *eventLog) Sent() []event.Event {
+	l.eventsL.RLock()
+	events := make([]event.Event, len(l.events))
+	copy(events, l.events)
+	l.eventsL.RUnlock()
+	return events
+}

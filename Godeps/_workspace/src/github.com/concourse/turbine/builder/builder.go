@@ -76,6 +76,8 @@ func (builder *builder) Start(build builds.Build, emitter event.Emitter, abort <
 			return RunningBuild{}, builder.emitError(emitter, "failed to fetch "+input.Name, err)
 		}
 
+		emitter.EmitEvent(event.Input{Input: computedInput})
+
 		build.Inputs[i] = computedInput
 
 		build.Config = build.Config.Merge(buildConfig)
@@ -315,6 +317,8 @@ func (builder *builder) performOutputs(
 				defer builder.tracker.Release(resource)
 
 				computedOutput, err := resource.Out(streamOut, output)
+
+				emitter.EmitEvent(event.Output{Output: computedOutput})
 
 				errs <- err
 				results <- computedOutput

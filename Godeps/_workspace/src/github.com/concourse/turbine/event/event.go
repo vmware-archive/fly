@@ -13,4 +13,6 @@ const (
 	EventTypeInitialize EventType = "initialize"
 	EventTypeStart      EventType = "start"
 	EventTypeError      EventType = "error"
+	EventTypeInput      EventType = "input"
+	EventTypeOutput     EventType = "output"
 )

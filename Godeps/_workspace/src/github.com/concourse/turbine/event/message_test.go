@@ -82,4 +82,28 @@ var _ = Describe("Encoding & Decoding messages", func() {
 
 		itEncodesAndDecodesToItself()
 	})
+
+	Describe("Input", func() {
+		BeforeEach(func() {
+			event = Input{
+				Input: builds.Input{
+					Name: "some-resource",
+				},
+			}
+		})
+
+		itEncodesAndDecodesToItself()
+	})
+
+	Describe("Output", func() {
+		BeforeEach(func() {
+			event = Output{
+				Output: builds.Output{
+					Name: "some-resource",
+				},
+			}
+		})
+
+		itEncodesAndDecodesToItself()
+	})
 })

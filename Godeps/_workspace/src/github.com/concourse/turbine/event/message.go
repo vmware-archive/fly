@@ -57,8 +57,16 @@ func (m *Message) UnmarshalJSON(bytes []byte) error {
 		event := Error{}
 		err = json.Unmarshal(*envelope.EventPayload, &event)
 		m.Event = event
+	case EventTypeInput:
+		event := Input{}
+		err = json.Unmarshal(*envelope.EventPayload, &event)
+		m.Event = event
+	case EventTypeOutput:
+		event := Output{}
+		err = json.Unmarshal(*envelope.EventPayload, &event)
+		m.Event = event
 	default:
-		return fmt.Errorf("unknown event type: %d", envelope.Type)
+		return fmt.Errorf("unknown event type: %v", envelope.Type)
 	}
 
 	return err
