@@ -19,6 +19,8 @@ var _ = Describe("Emitting events", func() {
 		successfulHandler http.HandlerFunc
 		consumedMessages  <-chan Message
 
+		triggerDrain chan<- struct{}
+
 		emitter Emitter
 
 		event Event
@@ -61,7 +63,11 @@ var _ = Describe("Emitting events", func() {
 		consumedMessages = messages
 
 		consumerAddr := consumer.HTTPTestServer.Listener.Addr().String()
-		emitter = NewWebSocketEmitter("ws://" + consumerAddr)
+
+		drain := make(chan struct{})
+		triggerDrain = drain
+
+		emitter = NewWebSocketEmitter("ws://"+consumerAddr, drain)
 
 		event = Log{
 			Payload: "sup",
@@ -115,6 +121,19 @@ var _ = Describe("Emitting events", func() {
 			Eventually(consumedMessages, 2*time.Second).Should(Receive(Equal(Message{
 				Event: event,
 			})))
+		})
+
+		Context("while draining", func() {
+			BeforeEach(func() {
+				close(triggerDrain)
+			})
+
+			It("gives up", func() {
+				emitter.EmitEvent(event)
+
+				Eventually(consumerFailed).Should(BeClosed())
+				Consistently(consumedMessages, 2*time.Second).ShouldNot(Receive())
+			})
 		})
 	})
 })

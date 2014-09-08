@@ -21,6 +21,7 @@ func (NullEmitter) Close()          {}
 
 type websocketEmitter struct {
 	logURL string
+	drain  <-chan struct{}
 
 	dialer *websocket.Dialer
 
@@ -30,9 +31,10 @@ type websocketEmitter struct {
 	writeL *sync.Mutex
 }
 
-func NewWebSocketEmitter(logURL string) Emitter {
+func NewWebSocketEmitter(logURL string, drain <-chan struct{}) Emitter {
 	return &websocketEmitter{
 		logURL: logURL,
+		drain:  drain,
 
 		dialer: &websocket.Dialer{
 			// allow detection of failed writes
@@ -50,7 +52,9 @@ func NewWebSocketEmitter(logURL string) Emitter {
 
 func (e *websocketEmitter) EmitEvent(event Event) {
 	for {
-		e.connect()
+		if !e.connect() {
+			return
+		}
 
 		e.writeL.Lock()
 
@@ -66,7 +70,11 @@ func (e *websocketEmitter) EmitEvent(event Event) {
 
 		e.close()
 
-		time.Sleep(time.Second)
+		select {
+		case <-time.After(time.Second):
+		case <-e.drain:
+			return
+		}
 	}
 }
 
@@ -74,12 +82,12 @@ func (e *websocketEmitter) Close() {
 	e.close()
 }
 
-func (e *websocketEmitter) connect() {
+func (e *websocketEmitter) connect() bool {
 	e.connL.Lock()
 	defer e.connL.Unlock()
 
 	if e.conn != nil {
-		return
+		return true
 	}
 
 	var err error
@@ -91,11 +99,15 @@ func (e *websocketEmitter) connect() {
 				Version: VERSION,
 			})
 			if err == nil {
-				return
+				return true
 			}
 		}
 
-		time.Sleep(time.Second)
+		select {
+		case <-time.After(time.Second):
+		case <-e.drain:
+			return false
+		}
 	}
 }
 

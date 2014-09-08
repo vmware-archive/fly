@@ -19,15 +19,17 @@ var _ = Describe("Resource In", func() {
 	var (
 		input builds.Input
 
-		inStdout     string
-		inStderr     string
-		inExitStatus int
-		inError      error
+		inScriptStdout     string
+		inScriptStderr     string
+		inScriptExitStatus int
+		runInError         error
 
-		fetchedStream io.Reader
-		fetchedConfig builds.Config
-		fetchedInput  builds.Input
-		fetchError    error
+		inScriptProcess *wfakes.FakeProcess
+
+		inStream io.Reader
+		inConfig builds.Config
+		inInput  builds.Input
+		inErr    error
 	)
 
 	BeforeEach(func() {
@@ -39,35 +41,37 @@ var _ = Describe("Resource In", func() {
 			Params:  builds.Params{"some": "params"},
 		}
 
-		inStdout = "{}"
-		inStderr = ""
-		inExitStatus = 0
-		inError = nil
+		inScriptStdout = "{}"
+		inScriptStderr = ""
+		inScriptExitStatus = 0
+		runInError = nil
+
+		inScriptProcess = new(wfakes.FakeProcess)
+		inScriptProcess.WaitStub = func() (int, error) {
+			return inScriptExitStatus, nil
+		}
 	})
 
 	JustBeforeEach(func() {
 		wardenClient.Connection.RunStub = func(handle string, spec warden.ProcessSpec, io warden.ProcessIO) (warden.Process, error) {
-			if inError != nil {
-				return nil, inError
+			if runInError != nil {
+				return nil, runInError
 			}
 
-			_, err := io.Stdout.Write([]byte(inStdout))
+			_, err := io.Stdout.Write([]byte(inScriptStdout))
 			Ω(err).ShouldNot(HaveOccurred())
 
-			_, err = io.Stderr.Write([]byte(inStderr))
+			_, err = io.Stderr.Write([]byte(inScriptStderr))
 			Ω(err).ShouldNot(HaveOccurred())
 
-			process := new(wfakes.FakeProcess)
-			process.WaitReturns(inExitStatus, nil)
-
-			return process, nil
+			return inScriptProcess, nil
 		}
 
-		fetchedStream, fetchedInput, fetchedConfig, fetchError = resource.In(input)
+		inStream, inInput, inConfig, inErr = resource.In(input)
 	})
 
 	It("runs /opt/resource/in <destination> with the request on stdin", func() {
-		Ω(fetchError).ShouldNot(HaveOccurred())
+		Ω(inErr).ShouldNot(HaveOccurred())
 
 		handle, spec, io := wardenClient.Connection.RunArgsForCall(0)
 		Ω(handle).Should(Equal("some-handle"))
@@ -87,7 +91,7 @@ var _ = Describe("Resource In", func() {
 
 	Context("when /opt/resource/in prints the source", func() {
 		BeforeEach(func() {
-			inStdout = `{
+			inScriptStdout = `{
 					"version": {"some": "new-version"},
 					"metadata": [
 						{"name": "a", "value":"a-value"},
@@ -104,17 +108,17 @@ var _ = Describe("Resource In", func() {
 				{Name: "b", Value: "b-value"},
 			}
 
-			Ω(fetchedInput).Should(Equal(expectedFetchedInput))
+			Ω(inInput).Should(Equal(expectedFetchedInput))
 		})
 	})
 
 	Context("when /in outputs to stderr", func() {
 		BeforeEach(func() {
-			inStderr = "some stderr data"
+			inScriptStderr = "some stderr data"
 		})
 
 		It("emits it to the log sink", func() {
-			Ω(fetchError).ShouldNot(HaveOccurred())
+			Ω(inErr).ShouldNot(HaveOccurred())
 
 			Ω(string(logs.Contents())).Should(Equal("some stderr data"))
 		})
@@ -136,7 +140,7 @@ var _ = Describe("Resource In", func() {
 		})
 
 		It("returns the output stream of /tmp/build/src/some-name/", func() {
-			contents, err := ioutil.ReadAll(fetchedStream)
+			contents, err := ioutil.ReadAll(inStream)
 			Ω(err).ShouldNot(HaveOccurred())
 			Ω(string(contents)).Should(Equal("sup"))
 		})
@@ -173,7 +177,7 @@ var _ = Describe("Resource In", func() {
 			})
 
 			It("is parsed and returned as a Build", func() {
-				Ω(fetchedConfig.Image).Should(Equal("some-reconfigured-image"))
+				Ω(inConfig.Image).Should(Equal("some-reconfigured-image"))
 			})
 
 			Context("but the output is invalid", func() {
@@ -202,7 +206,7 @@ var _ = Describe("Resource In", func() {
 				})
 
 				It("returns an error", func() {
-					Ω(fetchError).Should(HaveOccurred())
+					Ω(inErr).Should(HaveOccurred())
 				})
 			})
 		})
@@ -215,7 +219,7 @@ var _ = Describe("Resource In", func() {
 			})
 
 			It("returns the error", func() {
-				Ω(fetchError).Should(Equal(disaster))
+				Ω(inErr).Should(Equal(disaster))
 			})
 		})
 
@@ -227,7 +231,7 @@ var _ = Describe("Resource In", func() {
 			})
 
 			It("returns an error", func() {
-				Ω(fetchError).Should(HaveOccurred())
+				Ω(inErr).Should(HaveOccurred())
 			})
 		})
 	})
@@ -236,26 +240,26 @@ var _ = Describe("Resource In", func() {
 		disaster := errors.New("oh no!")
 
 		BeforeEach(func() {
-			inError = disaster
+			runInError = disaster
 		})
 
 		It("returns an err containing stdout/stderr of the process", func() {
-			Ω(fetchError).Should(Equal(disaster))
+			Ω(inErr).Should(Equal(disaster))
 		})
 	})
 
 	Context("when /opt/resource/in exits nonzero", func() {
 		BeforeEach(func() {
-			inStdout = "some-stdout-data"
-			inStderr = "some-stderr-data"
-			inExitStatus = 9
+			inScriptStdout = "some-stdout-data"
+			inScriptStderr = "some-stderr-data"
+			inScriptExitStatus = 9
 		})
 
 		It("returns an err containing stdout/stderr of the process", func() {
-			Ω(fetchError).Should(HaveOccurred())
-			Ω(fetchError.Error()).Should(ContainSubstring("some-stdout-data"))
-			Ω(fetchError.Error()).Should(ContainSubstring("some-stderr-data"))
-			Ω(fetchError.Error()).Should(ContainSubstring("exit status 9"))
+			Ω(inErr).Should(HaveOccurred())
+			Ω(inErr.Error()).Should(ContainSubstring("some-stdout-data"))
+			Ω(inErr.Error()).Should(ContainSubstring("some-stderr-data"))
+			Ω(inErr.Error()).Should(ContainSubstring("exit status 9"))
 		})
 	})
 
@@ -267,34 +271,34 @@ var _ = Describe("Resource In", func() {
 		})
 
 		It("returns the error", func() {
-			Ω(fetchError).Should(Equal(disaster))
+			Ω(inErr).Should(Equal(disaster))
 		})
 	})
 
 	Context("when aborting", func() {
-		BeforeEach(func() {
-			wardenClient.Connection.RunStub = func(handle string, spec warden.ProcessSpec, io warden.ProcessIO) (warden.Process, error) {
-				process := new(wfakes.FakeProcess)
-				process.WaitStub = func() (int, error) {
-					// cause waiting to block so that it can be aborted
-					select {}
-					return 0, nil
-				}
+		var waited chan<- struct{}
 
-				return process, nil
+		BeforeEach(func() {
+			waiting := make(chan struct{})
+			waited = waiting
+
+			inScriptProcess.WaitStub = func() (int, error) {
+				// cause waiting to block so that it can be aborted
+				<-waiting
+				return 0, nil
 			}
+
+			close(abort)
 		})
 
 		It("stops the container", func() {
-			go resource.In(input)
-
-			close(abort)
-
 			Eventually(wardenClient.Connection.StopCallCount).Should(Equal(1))
 
 			handle, kill := wardenClient.Connection.StopArgsForCall(0)
 			Ω(handle).Should(Equal("some-handle"))
 			Ω(kill).Should(BeFalse())
+
+			close(waited)
 		})
 	})
 })

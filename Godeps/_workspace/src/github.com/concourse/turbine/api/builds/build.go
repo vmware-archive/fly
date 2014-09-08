@@ -72,6 +72,9 @@ type Output struct {
 
 	Type string `json:"type"`
 
+	// e.g. [success, failure]
+	On OutputConditions `json:"on"`
+
 	// e.g. sha
 	Version Version `json:"version"`
 
@@ -84,6 +87,26 @@ type Output struct {
 	// e.g. commit_author, commit_date, commit_sha
 	Metadata []MetadataField `json:"metadata,omitempty"`
 }
+
+type OutputConditions []OutputCondition
+
+func (cs OutputConditions) SatisfiedBy(exitStatus int) bool {
+	for _, status := range cs {
+		if (status == OutputConditionSuccess && exitStatus == 0) ||
+			(status == OutputConditionFailure && exitStatus != 0) {
+			return true
+		}
+	}
+
+	return false
+}
+
+type OutputCondition string
+
+const (
+	OutputConditionSuccess OutputCondition = "success"
+	OutputConditionFailure OutputCondition = "failure"
+)
 
 type Source map[string]interface{}
 

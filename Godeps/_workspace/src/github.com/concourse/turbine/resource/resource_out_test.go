@@ -22,7 +22,9 @@ var _ = Describe("Resource Out", func() {
 		outScriptStdout     string
 		outScriptStderr     string
 		outScriptExitStatus int
-		outScriptError      error
+		runOutError         error
+
+		outScriptProcess *wfakes.FakeProcess
 
 		outOutput builds.Output
 		outErr    error
@@ -40,13 +42,18 @@ var _ = Describe("Resource Out", func() {
 		outScriptStdout = "{}"
 		outScriptStderr = ""
 		outScriptExitStatus = 0
-		outScriptError = nil
+		runOutError = nil
+
+		outScriptProcess = new(wfakes.FakeProcess)
+		outScriptProcess.WaitStub = func() (int, error) {
+			return outScriptExitStatus, nil
+		}
 	})
 
 	JustBeforeEach(func() {
 		wardenClient.Connection.RunStub = func(handle string, spec warden.ProcessSpec, io warden.ProcessIO) (warden.Process, error) {
-			if outScriptError != nil {
-				return nil, outScriptError
+			if runOutError != nil {
+				return nil, runOutError
 			}
 
 			_, err := io.Stdout.Write([]byte(outScriptStdout))
@@ -55,10 +62,7 @@ var _ = Describe("Resource Out", func() {
 			_, err = io.Stderr.Write([]byte(outScriptStderr))
 			Ω(err).ShouldNot(HaveOccurred())
 
-			process := new(wfakes.FakeProcess)
-			process.WaitReturns(outScriptExitStatus, nil)
-
-			return process, nil
+			return outScriptProcess, nil
 		}
 
 		outOutput, outErr = resource.Out(bytes.NewBufferString("the-source"), output)
@@ -159,7 +163,7 @@ var _ = Describe("Resource Out", func() {
 		disaster := errors.New("oh no!")
 
 		BeforeEach(func() {
-			outScriptError = disaster
+			runOutError = disaster
 		})
 
 		It("returns the error", func() {
@@ -183,29 +187,29 @@ var _ = Describe("Resource Out", func() {
 	})
 
 	Context("when aborting", func() {
-		BeforeEach(func() {
-			wardenClient.Connection.RunStub = func(handle string, spec warden.ProcessSpec, io warden.ProcessIO) (warden.Process, error) {
-				process := new(wfakes.FakeProcess)
-				process.WaitStub = func() (int, error) {
-					// cause waiting to block so that it can be aborted
-					select {}
-					return 0, nil
-				}
+		var waited chan<- struct{}
 
-				return process, nil
+		BeforeEach(func() {
+			waiting := make(chan struct{})
+			waited = waiting
+
+			outScriptProcess.WaitStub = func() (int, error) {
+				// cause waiting to block so that it can be aborted
+				<-waiting
+				return 0, nil
 			}
+
+			close(abort)
 		})
 
 		It("stops the container", func() {
-			go resource.Out(bytes.NewBufferString("the-source"), output)
-
-			close(abort)
-
 			Eventually(wardenClient.Connection.StopCallCount).Should(Equal(1))
 
 			handle, kill := wardenClient.Connection.StopArgsForCall(0)
 			Ω(handle).Should(Equal("some-handle"))
 			Ω(kill).Should(BeFalse())
+
+			close(waited)
 		})
 	})
 })

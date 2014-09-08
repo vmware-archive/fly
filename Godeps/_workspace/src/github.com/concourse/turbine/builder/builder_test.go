@@ -17,16 +17,18 @@ import (
 
 	"github.com/concourse/turbine/api/builds"
 	. "github.com/concourse/turbine/builder"
+	ofakes "github.com/concourse/turbine/builder/outputs/fakes"
 	"github.com/concourse/turbine/event"
 	efakes "github.com/concourse/turbine/event/fakes"
 	"github.com/concourse/turbine/resource"
-	resourcefakes "github.com/concourse/turbine/resource/fakes"
+	rfakes "github.com/concourse/turbine/resource/fakes"
 )
 
 var _ = Describe("Builder", func() {
 	var (
-		tracker      *resourcefakes.FakeTracker
-		wardenClient *fake_warden_client.FakeClient
+		tracker         *rfakes.FakeTracker
+		wardenClient    *fake_warden_client.FakeClient
+		outputPerformer *ofakes.FakePerformer
 
 		emitter *efakes.FakeEmitter
 		events  *eventLog
@@ -37,7 +39,7 @@ var _ = Describe("Builder", func() {
 	)
 
 	BeforeEach(func() {
-		tracker = new(resourcefakes.FakeTracker)
+		tracker = new(rfakes.FakeTracker)
 		wardenClient = fake_warden_client.New()
 
 		emitter = new(efakes.FakeEmitter)
@@ -45,7 +47,9 @@ var _ = Describe("Builder", func() {
 		events = &eventLog{}
 		emitter.EmitEventStub = events.Add
 
-		builder = NewBuilder(tracker, wardenClient)
+		outputPerformer = new(ofakes.FakePerformer)
+
+		builder = NewBuilder(tracker, wardenClient, outputPerformer)
 
 		build = builds.Build{
 			EventsCallback: "some-events-callback",
@@ -63,8 +67,18 @@ var _ = Describe("Builder", func() {
 					Args: []string{"arg1", "arg2"},
 				},
 			},
+		}
+	})
 
-			Inputs: []builds.Input{
+	Describe("Start", func() {
+		var started RunningBuild
+		var startErr error
+
+		var resource1 *rfakes.FakeResource
+		var resource2 *rfakes.FakeResource
+
+		BeforeEach(func() {
+			build.Inputs = []builds.Input{
 				{
 					Name: "first-resource",
 					Type: "raw",
@@ -73,20 +87,10 @@ var _ = Describe("Builder", func() {
 					Name: "second-resource",
 					Type: "raw",
 				},
-			},
-		}
-	})
+			}
 
-	Describe("Start", func() {
-		var started RunningBuild
-		var startErr error
-
-		var resource1 *resourcefakes.FakeResource
-		var resource2 *resourcefakes.FakeResource
-
-		BeforeEach(func() {
-			resource1 = new(resourcefakes.FakeResource)
-			resource2 = new(resourcefakes.FakeResource)
+			resource1 = new(rfakes.FakeResource)
+			resource2 = new(rfakes.FakeResource)
 
 			resources := make(chan resource.Resource, 2)
 			resources <- resource1
@@ -282,7 +286,7 @@ var _ = Describe("Builder", func() {
 							Ω(err).ShouldNot(HaveOccurred())
 						}()
 
-						return new(resourcefakes.FakeResource), nil
+						return new(rfakes.FakeResource), nil
 					}
 				})
 
@@ -527,8 +531,7 @@ var _ = Describe("Builder", func() {
 	})
 
 	Describe("Attach", func() {
-		var succeeded SucceededBuild
-		var failed error
+		var exitedBuild ExitedBuild
 		var attachErr error
 
 		var runningBuild RunningBuild
@@ -536,21 +539,10 @@ var _ = Describe("Builder", func() {
 
 		JustBeforeEach(func() {
 			abort = make(chan struct{})
-			succeeded, failed, attachErr = builder.Attach(runningBuild, emitter, abort)
+			exitedBuild, attachErr = builder.Attach(runningBuild, emitter, abort)
 		})
 
 		BeforeEach(func() {
-			build.Inputs = []builds.Input{
-				{
-					Name: "first-resource",
-					Type: "raw",
-				},
-				{
-					Name: "second-resource",
-					Type: "raw",
-				},
-			}
-
 			wardenClient.Connection.CreateReturns("the-attached-container", nil)
 
 			container, err := wardenClient.Create(warden.ContainerSpec{})
@@ -728,21 +720,7 @@ var _ = Describe("Builder", func() {
 			})
 		})
 
-		Context("when the build's script exits 0", func() {
-			BeforeEach(func() {
-				process := new(wfakes.FakeProcess)
-				process.WaitReturns(0, nil)
-
-				runningBuild.Process = process
-			})
-
-			It("returns a successful build", func() {
-				Ω(succeeded).ShouldNot(BeZero())
-				Ω(failed).Should(BeZero())
-			})
-		})
-
-		Context("when the build's script exits nonzero", func() {
+		Context("when the build's script exits", func() {
 			BeforeEach(func() {
 				process := new(wfakes.FakeProcess)
 				process.WaitReturns(2, nil)
@@ -750,22 +728,8 @@ var _ = Describe("Builder", func() {
 				runningBuild.Process = process
 			})
 
-			It("returns a failure", func() {
-				Ω(succeeded).Should(BeZero())
-				Ω(failed).ShouldNot(BeZero())
-			})
-
-			It("emits a Finish event", func() {
-				var finishEvent event.Finish
-				Eventually(events.Sent).Should(ContainElement(BeAssignableToTypeOf(finishEvent)))
-
-				for _, ev := range events.Sent() {
-					switch finishEvent := ev.(type) {
-					case event.Finish:
-						Ω(finishEvent.ExitStatus).Should(Equal(2))
-						Ω(finishEvent.Time).Should(BeNumerically("~", time.Now().Unix()))
-					}
-				}
+			It("returns the exited build with the status present", func() {
+				Ω(exitedBuild.ExitStatus).Should(Equal(2))
 			})
 		})
 	})
@@ -854,38 +818,77 @@ var _ = Describe("Builder", func() {
 		})
 	})
 
-	Describe("Complete", func() {
-		var finished builds.Build
-		var completeErr error
-
-		var succeededBuild SucceededBuild
+	Describe("Finish", func() {
+		var exitedBuild ExitedBuild
 		var abort chan struct{}
+
+		var onSuccessOutput builds.Output
+		var onSuccessOrFailureOutput builds.Output
+		var onFailureOutput builds.Output
+
+		var finished builds.Build
+		var finishErr error
 
 		JustBeforeEach(func() {
 			abort = make(chan struct{})
-			finished, completeErr = builder.Complete(succeededBuild, emitter, abort)
+			finished, finishErr = builder.Finish(exitedBuild, emitter, abort)
 		})
 
 		BeforeEach(func() {
 			build.Inputs = []builds.Input{
 				{
-					Name:    "first-resource",
-					Type:    "raw",
+					Name:    "first-input",
+					Type:    "some-type",
 					Source:  builds.Source{"uri": "in-source-1"},
 					Version: builds.Version{"key": "in-version-1"},
 					Metadata: []builds.MetadataField{
-						{Name: "meta1", Value: "value1"},
+						{Name: "first-meta-name", Value: "first-meta-value"},
 					},
 				},
 				{
-					Name:    "second-resource",
-					Type:    "raw",
+					Name:    "second-input",
+					Type:    "some-type",
 					Source:  builds.Source{"uri": "in-source-2"},
 					Version: builds.Version{"key": "in-version-2"},
 					Metadata: []builds.MetadataField{
-						{Name: "meta2", Value: "value2"},
+						{Name: "second-meta-name", Value: "second-meta-value"},
 					},
 				},
+			}
+
+			onSuccessOutput = builds.Output{
+				Name:   "on-success",
+				Type:   "some-type",
+				On:     []builds.OutputCondition{builds.OutputConditionSuccess},
+				Params: builds.Params{"key": "success-param"},
+				Source: builds.Source{"uri": "http://success-uri"},
+			}
+
+			onSuccessOrFailureOutput = builds.Output{
+				Name: "on-success-or-failure",
+				Type: "some-type",
+				On: []builds.OutputCondition{
+					builds.OutputConditionSuccess,
+					builds.OutputConditionFailure,
+				},
+				Params: builds.Params{"key": "success-or-failure-param"},
+				Source: builds.Source{"uri": "http://success-or-failure-uri"},
+			}
+
+			onFailureOutput = builds.Output{
+				Name: "on-failure",
+				Type: "some-type",
+				On: []builds.OutputCondition{
+					builds.OutputConditionFailure,
+				},
+				Params: builds.Params{"key": "failure-param"},
+				Source: builds.Source{"uri": "http://failure-uri"},
+			}
+
+			build.Outputs = []builds.Output{
+				onSuccessOutput,
+				onSuccessOrFailureOutput,
+				onFailureOutput,
 			}
 
 			wardenClient.Connection.CreateReturns("the-attached-container", nil)
@@ -895,287 +898,201 @@ var _ = Describe("Builder", func() {
 
 			wardenClient.Connection.CreateReturns("", nil)
 
-			succeededBuild = SucceededBuild{
-				Build:     build,
+			exitedBuild = ExitedBuild{
+				Build: build,
+
 				Container: container,
 			}
 		})
 
-		It("reports inputs as implicit outputs", func() {
-			Ω(finished.Outputs).Should(HaveLen(2))
-
-			Ω(finished.Outputs).Should(ContainElement(builds.Output{
-				Name:    "first-resource",
-				Type:    "raw",
-				Source:  builds.Source{"uri": "in-source-1"},
-				Version: builds.Version{"key": "in-version-1"},
-				Metadata: []builds.MetadataField{
-					{Name: "meta1", Value: "value1"},
-				},
-			}))
-
-			Ω(finished.Outputs).Should(ContainElement(builds.Output{
-				Name:    "second-resource",
-				Type:    "raw",
-				Source:  builds.Source{"uri": "in-source-2"},
-				Version: builds.Version{"key": "in-version-2"},
-				Metadata: []builds.MetadataField{
-					{Name: "meta2", Value: "value2"},
-				},
-			}))
-		})
-
-		Context("and outputs are configured on the build", func() {
-			var resource1 *resourcefakes.FakeResource
-			var resource2 *resourcefakes.FakeResource
-
+		Context("when the build exited with success", func() {
 			BeforeEach(func() {
-				succeededBuild.Build.Outputs = []builds.Output{
-					{
-						Name:   "first-resource",
-						Type:   "git",
-						Params: builds.Params{"key": "param-1"},
-						Source: builds.Source{"uri": "http://first-uri"},
-					},
-					{
-						Name:   "extra-output",
-						Type:   "git",
-						Params: builds.Params{"key": "param-2"},
-						Source: builds.Source{"uri": "http://extra-uri"},
-					},
-				}
-
-				resource1 = new(resourcefakes.FakeResource)
-				resource2 = new(resourcefakes.FakeResource)
-
-				resources := make(chan resource.Resource, 2)
-				resources <- resource1
-				resources <- resource2
-
-				tracker.InitStub = func(typ string, logs io.Writer, abort <-chan struct{}) (resource.Resource, error) {
-					return <-resources, nil
-				}
+				exitedBuild.ExitStatus = 0
 			})
 
-			Context("and streaming out succeeds", func() {
-				BeforeEach(func() {
-					wardenClient.Connection.StreamOutStub = func(handle string, srcPath string) (io.ReadCloser, error) {
-						return ioutil.NopCloser(bytes.NewBufferString("streamed-out")), nil
+			It("emits a Finish event", func() {
+				var finishEvent event.Finish
+				Eventually(events.Sent).Should(ContainElement(BeAssignableToTypeOf(finishEvent)))
+
+				for _, ev := range events.Sent() {
+					switch finishEvent := ev.(type) {
+					case event.Finish:
+						Ω(finishEvent.ExitStatus).Should(Equal(0))
+						Ω(finishEvent.Time).Should(BeNumerically("~", time.Now().Unix()))
 					}
-				})
+				}
+			})
 
-				Context("when each output succeeds", func() {
-					BeforeEach(func() {
-						sync := make(chan struct{})
+			It("performs the set of 'on success' outputs", func() {
+				Ω(outputPerformer.PerformOutputsCallCount()).Should(Equal(1))
 
-						resource1.OutStub = func(src io.Reader, output builds.Output) (builds.Output, error) {
-							<-sync
-							output.Version = builds.Version{"key": "out-version-1"}
-							output.Metadata = []builds.MetadataField{{Name: "name", Value: "out-meta-1"}}
-							return output, nil
-						}
+				container, outputs, performingEmitter, _ := outputPerformer.PerformOutputsArgsForCall(0)
+				Ω(container).Should(Equal(exitedBuild.Container))
+				Ω(outputs).Should(Equal([]builds.Output{
+					onSuccessOutput,
+					onSuccessOrFailureOutput,
+				}))
+				Ω(performingEmitter).Should(Equal(emitter))
+			})
 
-						resource2.OutStub = func(src io.Reader, output builds.Output) (builds.Output, error) {
-							sync <- struct{}{}
-							output.Version = builds.Version{"key": "out-version-3"}
-							output.Metadata = []builds.MetadataField{{Name: "name", Value: "out-meta-3"}}
-							return output, nil
-						}
-					})
+			Context("when the build is aborted", func() {
+				It("aborts performing outputs", func() {
+					_, _, _, performingAbort := outputPerformer.PerformOutputsArgsForCall(0)
 
-					It("evaluates every output in parallel with the source, params, and version", func() {
-						Ω(resource1.OutCallCount()).Should(Equal(1))
+					Ω(performingAbort).ShouldNot(BeClosed())
 
-						streamIn, output := resource1.OutArgsForCall(0)
-						firstOutputWithVersion := succeededBuild.Build.Outputs[0]
-						firstOutputWithVersion.Version = succeededBuild.Build.Inputs[0].Version
-						Ω(output).Should(Equal(firstOutputWithVersion))
+					close(abort)
 
-						streamedIn, err := ioutil.ReadAll(streamIn)
-						Ω(err).ShouldNot(HaveOccurred())
-
-						Ω(string(streamedIn)).Should(Equal("streamed-out"))
-
-						Ω(resource2.OutCallCount()).Should(Equal(1))
-
-						streamIn, output = resource2.OutArgsForCall(0)
-						secondOutputWithoutVersion := succeededBuild.Build.Outputs[1]
-						Ω(output).Should(Equal(secondOutputWithoutVersion))
-
-						streamedIn, err = ioutil.ReadAll(streamIn)
-						Ω(err).ShouldNot(HaveOccurred())
-
-						Ω(string(streamedIn)).Should(Equal("streamed-out"))
-					})
-
-					It("reports the outputs", func() {
-						Ω(finished.Outputs).Should(HaveLen(3))
-
-						Ω(finished.Outputs).Should(ContainElement(builds.Output{
-							Name:     "first-resource",
-							Type:     "git",
-							Source:   builds.Source{"uri": "http://first-uri"},
-							Params:   builds.Params{"key": "param-1"},
-							Version:  builds.Version{"key": "out-version-1"},
-							Metadata: []builds.MetadataField{{Name: "name", Value: "out-meta-1"}},
-						}))
-
-						// implicit output created for an input 'second-resource'
-						Ω(finished.Outputs).Should(ContainElement(builds.Output{
-							Name:    "second-resource",
-							Type:    "raw",
-							Source:  builds.Source{"uri": "in-source-2"},
-							Params:  nil,
-							Version: builds.Version{"key": "in-version-2"},
-							Metadata: []builds.MetadataField{
-								{Name: "meta2", Value: "value2"},
-							},
-						}))
-
-						Ω(finished.Outputs).Should(ContainElement(builds.Output{
-							Name:     "extra-output",
-							Type:     "git",
-							Source:   builds.Source{"uri": "http://extra-uri"},
-							Params:   builds.Params{"key": "param-2"},
-							Version:  builds.Version{"key": "out-version-3"},
-							Metadata: []builds.MetadataField{{Name: "name", Value: "out-meta-3"}},
-						}))
-					})
-
-					It("emits output events for each explicit output", func() {
-						Eventually(events.Sent).Should(ContainElement(event.Output{
-							Output: builds.Output{
-								Name:     "first-resource",
-								Type:     "git",
-								Source:   builds.Source{"uri": "http://first-uri"},
-								Params:   builds.Params{"key": "param-1"},
-								Version:  builds.Version{"key": "out-version-1"},
-								Metadata: []builds.MetadataField{{Name: "name", Value: "out-meta-1"}},
-							},
-						}))
-
-						Eventually(events.Sent).Should(ContainElement(event.Output{
-							Output: builds.Output{
-								Name:     "extra-output",
-								Type:     "git",
-								Source:   builds.Source{"uri": "http://extra-uri"},
-								Params:   builds.Params{"key": "param-2"},
-								Version:  builds.Version{"key": "out-version-3"},
-								Metadata: []builds.MetadataField{{Name: "name", Value: "out-meta-3"}},
-							},
-						}))
-
-						Consistently(events.Sent).ShouldNot(ContainElement(event.Output{
-							Output: builds.Output{
-								Name:    "second-resource",
-								Type:    "raw",
-								Source:  builds.Source{"uri": "in-source-2"},
-								Params:  nil,
-								Version: builds.Version{"key": "in-version-2"},
-								Metadata: []builds.MetadataField{
-									{Name: "meta2", Value: "value2"},
-								},
-							},
-						}))
-					})
-
-					It("releases each resource", func() {
-						Ω(tracker.ReleaseCallCount()).Should(Equal(2))
-
-						allReleased := []resource.Resource{
-							tracker.ReleaseArgsForCall(0),
-							tracker.ReleaseArgsForCall(1),
-						}
-
-						Ω(allReleased).Should(ContainElement(resource1))
-						Ω(allReleased).Should(ContainElement(resource2))
-					})
-				})
-
-				Context("when an output fails", func() {
-					disaster := errors.New("oh no!")
-
-					BeforeEach(func() {
-						resource1.OutReturns(builds.Output{}, disaster)
-					})
-
-					It("returns an error", func() {
-						Ω(completeErr).Should(Equal(disaster))
-					})
-
-					It("emits an error event", func() {
-						Eventually(events.Sent).Should(ContainElement(event.Error{
-							Message: "outputs failed: oh no!",
-						}))
-					})
-
-					It("releases each resource", func() {
-						Ω(tracker.ReleaseCallCount()).Should(Equal(2))
-
-						allReleased := []resource.Resource{
-							tracker.ReleaseArgsForCall(0),
-							tracker.ReleaseArgsForCall(1),
-						}
-
-						Ω(allReleased).Should(ContainElement(resource1))
-						Ω(allReleased).Should(ContainElement(resource2))
-					})
-				})
-
-				Describe("when the outputs emit logs", func() {
-					BeforeEach(func() {
-						resource1.OutStub = func(src io.Reader, output builds.Output) (builds.Output, error) {
-							defer GinkgoRecover()
-
-							_, logs, _ := tracker.InitArgsForCall(0)
-
-							Ω(logs).ShouldNot(BeNil())
-							logs.Write([]byte("hello from outputter"))
-
-							return output, nil
-						}
-					})
-
-					It("emits output events", func() {
-						Eventually(events.Sent).Should(ContainElement(event.Log{
-							Payload: "hello from outputter",
-							Origin: event.Origin{
-								Type: event.OriginTypeOutput,
-								Name: "first-resource",
-							},
-						}))
-					})
-				})
-
-				Context("when the build is aborted", func() {
-					BeforeEach(func() {
-						resource1.OutStub = func(io.Reader, builds.Output) (builds.Output, error) {
-							// return abort error to simulate fetching being aborted;
-							// assert that the channel closed below
-							return builds.Output{}, ErrAborted
-						}
-					})
-
-					It("aborts all resource activity", func() {
-						Ω(completeErr).Should(Equal(ErrAborted))
-
-						close(abort)
-
-						_, _, resourceAbort := tracker.InitArgsForCall(0)
-						Ω(resourceAbort).Should(BeClosed())
-					})
+					Ω(performingAbort).Should(BeClosed())
 				})
 			})
 
-			Context("and streaming out fails", func() {
+			Context("when performing outputs succeeds", func() {
+				explicitOutputOnSuccess := builds.Output{
+					Name:     "on-success",
+					Type:     "some-type",
+					On:       []builds.OutputCondition{builds.OutputConditionSuccess},
+					Source:   builds.Source{"uri": "http://success-uri"},
+					Params:   builds.Params{"key": "success-param"},
+					Version:  builds.Version{"version": "on-success-performed"},
+					Metadata: []builds.MetadataField{{Name: "output", Value: "on-success"}},
+				}
+
+				explicitOutputOnSuccessOrFailure := builds.Output{
+					Name: "on-success-or-failure",
+					Type: "some-type",
+					On: []builds.OutputCondition{
+						builds.OutputConditionSuccess,
+						builds.OutputConditionFailure,
+					},
+					Source:   builds.Source{"uri": "http://success-or-failure-uri"},
+					Params:   builds.Params{"key": "success-or-failure-param"},
+					Version:  builds.Version{"version": "on-success-or-failure-performed"},
+					Metadata: []builds.MetadataField{{Name: "output", Value: "on-success-or-failure"}},
+				}
+
+				BeforeEach(func() {
+					performedOutputs := []builds.Output{
+						explicitOutputOnSuccess,
+						explicitOutputOnSuccessOrFailure,
+					}
+
+					outputPerformer.PerformOutputsReturns(performedOutputs, nil)
+				})
+
+				It("returns the performed outputs", func() {
+					Ω(finished.Outputs).Should(HaveLen(2))
+
+					Ω(finished.Outputs).Should(ContainElement(explicitOutputOnSuccess))
+					Ω(finished.Outputs).Should(ContainElement(explicitOutputOnSuccessOrFailure))
+				})
+			})
+
+			Context("when performing outputs fails", func() {
 				disaster := errors.New("oh no!")
 
 				BeforeEach(func() {
-					wardenClient.Connection.StreamOutReturns(nil, disaster)
+					outputPerformer.PerformOutputsReturns(nil, disaster)
 				})
 
-				It("sends the error result", func() {
-					Ω(completeErr).Should(Equal(disaster))
+				It("returns the error", func() {
+					Ω(finishErr).Should(Equal(disaster))
+				})
+			})
+		})
+
+		Context("when the build exited with failure", func() {
+			BeforeEach(func() {
+				exitedBuild.ExitStatus = 2
+			})
+
+			It("emits a Finish event", func() {
+				var finishEvent event.Finish
+				Eventually(events.Sent).Should(ContainElement(BeAssignableToTypeOf(finishEvent)))
+
+				for _, ev := range events.Sent() {
+					switch finishEvent := ev.(type) {
+					case event.Finish:
+						Ω(finishEvent.ExitStatus).Should(Equal(2))
+						Ω(finishEvent.Time).Should(BeNumerically("~", time.Now().Unix()))
+					}
+				}
+			})
+
+			It("performs the set of 'on failure' outputs", func() {
+				Ω(outputPerformer.PerformOutputsCallCount()).Should(Equal(1))
+
+				container, outputs, performingEmitter, _ := outputPerformer.PerformOutputsArgsForCall(0)
+				Ω(container).Should(Equal(exitedBuild.Container))
+				Ω(outputs).Should(Equal([]builds.Output{
+					onSuccessOrFailureOutput,
+					onFailureOutput,
+				}))
+				Ω(performingEmitter).Should(Equal(emitter))
+			})
+
+			Context("when the build is aborted", func() {
+				It("aborts performing outputs", func() {
+					_, _, _, performingAbort := outputPerformer.PerformOutputsArgsForCall(0)
+
+					Ω(performingAbort).ShouldNot(BeClosed())
+
+					close(abort)
+
+					Ω(performingAbort).Should(BeClosed())
+				})
+			})
+
+			Context("when performing outputs succeeds", func() {
+				explicitOutputOnSuccessOrFailure := builds.Output{
+					Name: "on-success-or-failure",
+					Type: "some-type",
+					On: []builds.OutputCondition{
+						builds.OutputConditionSuccess,
+						builds.OutputConditionFailure,
+					},
+					Source:   builds.Source{"uri": "http://success-or-failure-uri"},
+					Params:   builds.Params{"key": "success-or-failure-param"},
+					Version:  builds.Version{"version": "on-success-or-failure-performed"},
+					Metadata: []builds.MetadataField{{Name: "output", Value: "on-success-or-failure"}},
+				}
+
+				explicitOutputOnFailure := builds.Output{
+					Name:     "on-failure",
+					Type:     "some-type",
+					On:       []builds.OutputCondition{builds.OutputConditionSuccess},
+					Source:   builds.Source{"uri": "http://failure-uri"},
+					Params:   builds.Params{"key": "failure-param"},
+					Version:  builds.Version{"version": "on-failure-performed"},
+					Metadata: []builds.MetadataField{{Name: "output", Value: "on-failure"}},
+				}
+
+				BeforeEach(func() {
+					performedOutputs := []builds.Output{
+						explicitOutputOnSuccessOrFailure,
+						explicitOutputOnFailure,
+					}
+
+					outputPerformer.PerformOutputsReturns(performedOutputs, nil)
+				})
+
+				It("returns the explicitly-performed outputs", func() {
+					Ω(finished.Outputs).Should(HaveLen(2))
+
+					Ω(finished.Outputs).Should(ContainElement(explicitOutputOnSuccessOrFailure))
+					Ω(finished.Outputs).Should(ContainElement(explicitOutputOnFailure))
+				})
+			})
+
+			Context("when performing outputs fails", func() {
+				disaster := errors.New("oh no!")
+
+				BeforeEach(func() {
+					outputPerformer.PerformOutputsReturns(nil, disaster)
+				})
+
+				It("returns the error", func() {
+					Ω(finishErr).Should(Equal(disaster))
 				})
 			})
 		})

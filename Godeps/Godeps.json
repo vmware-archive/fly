@@ -15,6 +15,26 @@
 			"Rev": "40d984940cfc36e6d552dc2985c4e7350881b059"
 		},
 		{
+			"ImportPath": "github.com/concourse/atc/api",
+			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+		},
+		{
+			"ImportPath": "github.com/concourse/atc/builder",
+			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+		},
+		{
+			"ImportPath": "github.com/concourse/atc/builds",
+			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+		},
+		{
+			"ImportPath": "github.com/concourse/atc/callbacks/routes",
+			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+		},
+		{
+			"ImportPath": "github.com/concourse/atc/logfanout",
+			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+		},
+		{
 			"ImportPath": "github.com/concourse/glider/api/builds",
 			"Rev": "6ea41384918590f7d4e0c07eca634452dfc3948c"
 		},
@@ -24,35 +44,39 @@
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/builds",
-			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/hijack",
-			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/builder",
-			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/config",
-			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/event",
-			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/logwriter",
-			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/resource",
-			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
+		},
+		{
+			"ImportPath": "github.com/concourse/turbine/routes",
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/scheduler",
-			"Rev": "6369dde14ad5ce0c121463d63ea748a381031714"
+			"Rev": "aef1213d0567f94622d0274a7cba0eb855901ebb"
 		},
 		{
 			"ImportPath": "github.com/fraenkel/candiedyaml",
@@ -72,14 +96,18 @@
 			"Rev": "376eb392d7d7e2ae025da0037c73cf8c20a428d8"
 		},
 		{
+			"ImportPath": "github.com/nu7hatch/gouuid",
+			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
+		},
+		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Comment": "v1.1.0-6-g527974d",
-			"Rev": "527974d5873391de9d8a25b761b5fc1382e9279e"
+			"Comment": "v1.1.0-9-g7b9e081",
+			"Rev": "7b9e081dc43c4171e2855eb80fdab9a6b9fa604d"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Comment": "v1.0",
-			"Rev": "a78ae492d53aad5a7a232d0d0462c14c400e3ee7"
+			"Comment": "v1.0-3-ga108de5",
+			"Rev": "a108de58134c78abf1ae598295bca3dbe90beb88"
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/archiver/compressor",
@@ -87,7 +115,7 @@
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/lager",
-			"Rev": "24bc7249ba26ad2f1493363b9dcedf86023f47d7"
+			"Rev": "c9b4b9ba624d212b1010dab04c2b4515a9ecc031"
 		},
 		{
 			"ImportPath": "github.com/pkg/term",

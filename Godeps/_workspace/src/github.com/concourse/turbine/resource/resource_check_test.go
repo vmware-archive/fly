@@ -16,10 +16,12 @@ var _ = Describe("Resource Check", func() {
 	var (
 		input builds.Input
 
-		checkStdout     string
-		checkStderr     string
-		checkExitStatus int
-		runCheckError   error
+		checkScriptStdout     string
+		checkScriptStderr     string
+		checkScriptExitStatus int
+		runCheckError         error
+
+		checkScriptProcess *wfakes.FakeProcess
 
 		checkResult []builds.Version
 		checkErr    error
@@ -32,10 +34,15 @@ var _ = Describe("Resource Check", func() {
 			Version: builds.Version{"some": "version"},
 		}
 
-		checkStdout = "[]"
-		checkStderr = ""
-		checkExitStatus = 0
+		checkScriptStdout = "[]"
+		checkScriptStderr = ""
+		checkScriptExitStatus = 0
 		runCheckError = nil
+
+		checkScriptProcess = new(wfakes.FakeProcess)
+		checkScriptProcess.WaitStub = func() (int, error) {
+			return checkScriptExitStatus, nil
+		}
 
 		checkResult = nil
 		checkErr = nil
@@ -47,16 +54,13 @@ var _ = Describe("Resource Check", func() {
 				return nil, runCheckError
 			}
 
-			_, err := io.Stdout.Write([]byte(checkStdout))
+			_, err := io.Stdout.Write([]byte(checkScriptStdout))
 			Ω(err).ShouldNot(HaveOccurred())
 
-			_, err = io.Stderr.Write([]byte(checkStderr))
+			_, err = io.Stderr.Write([]byte(checkScriptStderr))
 			Ω(err).ShouldNot(HaveOccurred())
 
-			process := new(wfakes.FakeProcess)
-			process.WaitReturns(checkExitStatus, nil)
-
-			return process, runCheckError
+			return checkScriptProcess, nil
 		}
 
 		checkResult, checkErr = resource.Check(input)
@@ -79,7 +83,7 @@ var _ = Describe("Resource Check", func() {
 
 	Context("when /check outputs versions", func() {
 		BeforeEach(func() {
-			checkStdout = `[{"ver":"abc"}, {"ver":"def"}, {"ver":"ghi"}]`
+			checkScriptStdout = `[{"ver":"abc"}, {"ver":"def"}, {"ver":"ghi"}]`
 		})
 
 		It("returns the raw parsed contents", func() {
@@ -107,9 +111,9 @@ var _ = Describe("Resource Check", func() {
 
 	Context("when /opt/resource/check exits nonzero", func() {
 		BeforeEach(func() {
-			checkStdout = "some-stdout-data"
-			checkStderr = "some-stderr-data"
-			checkExitStatus = 9
+			checkScriptStdout = "some-stdout-data"
+			checkScriptStderr = "some-stderr-data"
+			checkScriptExitStatus = 9
 		})
 
 		It("returns an err containing stdout/stderr of the process", func() {
@@ -123,7 +127,7 @@ var _ = Describe("Resource Check", func() {
 
 	Context("when the output of /opt/resource/check is malformed", func() {
 		BeforeEach(func() {
-			checkStdout = "ß"
+			checkScriptStdout = "ß"
 		})
 
 		It("returns an error", func() {
