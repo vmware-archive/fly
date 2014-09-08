@@ -26,8 +26,10 @@ func NewHandler(
 
 	handlers := map[string]http.Handler{
 		CreateBuild: http.HandlerFunc(buildsServer.CreateBuild),
+		ListBuilds:  http.HandlerFunc(buildsServer.ListBuilds),
 		BuildEvents: http.HandlerFunc(buildsServer.BuildEvents),
 		AbortBuild:  http.HandlerFunc(buildsServer.AbortBuild),
+		HijackBuild: http.HandlerFunc(buildsServer.HijackBuild),
 
 		CreatePipe: http.HandlerFunc(pipeServer.CreatePipe),
 		WritePipe:  http.HandlerFunc(pipeServer.WritePipe),

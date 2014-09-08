@@ -22,6 +22,9 @@ type Server struct {
 }
 
 type BuildsDB interface {
+	GetBuild(buildID int) (builds.Build, error)
+	GetAllBuilds() ([]builds.Build, error)
+
 	CreateOneOffBuild() (builds.Build, error)
 	AbortBuild(buildID int) (string, error)
 }

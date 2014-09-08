@@ -16,31 +16,23 @@
 		},
 		{
 			"ImportPath": "github.com/concourse/atc/api",
-			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+			"Rev": "faf85c624785faa7cf1f26ff2b9a6878cbc5346b"
 		},
 		{
 			"ImportPath": "github.com/concourse/atc/builder",
-			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+			"Rev": "faf85c624785faa7cf1f26ff2b9a6878cbc5346b"
 		},
 		{
 			"ImportPath": "github.com/concourse/atc/builds",
-			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+			"Rev": "faf85c624785faa7cf1f26ff2b9a6878cbc5346b"
 		},
 		{
 			"ImportPath": "github.com/concourse/atc/callbacks/routes",
-			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
+			"Rev": "faf85c624785faa7cf1f26ff2b9a6878cbc5346b"
 		},
 		{
 			"ImportPath": "github.com/concourse/atc/logfanout",
-			"Rev": "5d0b97bbe35d3aecae6003738981820c15b30cfa"
-		},
-		{
-			"ImportPath": "github.com/concourse/glider/api/builds",
-			"Rev": "6ea41384918590f7d4e0c07eca634452dfc3948c"
-		},
-		{
-			"ImportPath": "github.com/concourse/glider/routes",
-			"Rev": "6ea41384918590f7d4e0c07eca634452dfc3948c"
+			"Rev": "faf85c624785faa7cf1f26ff2b9a6878cbc5346b"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/builds",
