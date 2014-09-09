@@ -16,11 +16,11 @@
 		},
 		{
 			"ImportPath": "github.com/concourse/atc/api/resources",
-			"Rev": "09129fba55a8778265c388787fecb42edbda6acd"
+			"Rev": "16e52cf6ead5d2b8f9d8f5f8bee97cb7111b68b4"
 		},
 		{
 			"ImportPath": "github.com/concourse/atc/api/routes",
-			"Rev": "09129fba55a8778265c388787fecb42edbda6acd"
+			"Rev": "16e52cf6ead5d2b8f9d8f5f8bee97cb7111b68b4"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/builds",
