@@ -15,12 +15,17 @@
 			"Rev": "40d984940cfc36e6d552dc2985c4e7350881b059"
 		},
 		{
+			"ImportPath": "github.com/codegangsta/cli",
+			"Comment": "1.2.0-24-g7381bc4",
+			"Rev": "7381bc4e62942763475703c7edd405f1e42adf4f"
+		},
+		{
 			"ImportPath": "github.com/concourse/atc/api/resources",
-			"Rev": "16e52cf6ead5d2b8f9d8f5f8bee97cb7111b68b4"
+			"Rev": "f8056ff22913d357f82eb12168b635184825a1c3"
 		},
 		{
 			"ImportPath": "github.com/concourse/atc/api/routes",
-			"Rev": "16e52cf6ead5d2b8f9d8f5f8bee97cb7111b68b4"
+			"Rev": "f8056ff22913d357f82eb12168b635184825a1c3"
 		},
 		{
 			"ImportPath": "github.com/concourse/turbine/api/builds",
@@ -73,13 +78,13 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Comment": "v1.1.0-9-g7b9e081",
-			"Rev": "7b9e081dc43c4171e2855eb80fdab9a6b9fa604d"
+			"Comment": "v1.1.0-11-ge809316",
+			"Rev": "e8093161dcbdab0a59dfe56f3f8c867d243ac75f"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Comment": "v1.0-3-ga108de5",
-			"Rev": "a108de58134c78abf1ae598295bca3dbe90beb88"
+			"Comment": "v1.0-4-gc9914be",
+			"Rev": "c9914bed6a0c5fd914a6d3ca57c59c5935a5cfd0"
 		},
 		{
 			"ImportPath": "github.com/pivotal-golang/archiver/compressor",
