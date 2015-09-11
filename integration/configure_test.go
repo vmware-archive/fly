@@ -479,6 +479,51 @@ var _ = Describe("Fly CLI", func() {
 					Ω(atcServer.ReceivedRequests()).Should(HaveLen(2))
 				})
 
+				It("parses the config file and sends it to the ATC without requiring confirmation", func() {
+					flyCmd := exec.Command(flyPath, "-t", atcServer.URL()+"/", "configure", "awesome-pipeline", "-c", configFile.Name(), "--paused", "--force")
+
+					_, err := flyCmd.StderrPipe()
+					Ω(err).ShouldNot(HaveOccurred())
+
+					sess, err := gexec.Start(flyCmd, GinkgoWriter, GinkgoWriter)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					Eventually(sess).Should(gbytes.Say("group some-group has changed"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("- some-new-job", "green")))
+
+					Eventually(sess).Should(gbytes.Say("group some-other-group has been removed"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("name: some-other-group", "red")))
+
+					Eventually(sess).Should(gbytes.Say("group some-new-group has been added"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("name: some-new-group", "green")))
+
+					Eventually(sess).Should(gbytes.Say("resource some-resource has changed"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("type: some-type", "red")))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("type: some-new-type", "green")))
+
+					Eventually(sess).Should(gbytes.Say("resource some-other-resource has been removed"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("name: some-other-resource", "red")))
+
+					Eventually(sess).Should(gbytes.Say("resource some-new-resource has been added"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("name: some-new-resource", "green")))
+
+					Eventually(sess).Should(gbytes.Say("job some-job has changed"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("serial: true", "red")))
+
+					Eventually(sess).Should(gbytes.Say("job some-other-job has been removed"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("name: some-other-job", "red")))
+
+					Eventually(sess).Should(gbytes.Say("job some-new-job has been added"))
+					Eventually(sess.Out.Contents).Should(ContainSubstring(ansi.Color("name: some-new-job", "green")))
+
+					Eventually(sess).Should(gbytes.Say("configuration updated"))
+
+					<-sess.Exited
+					Ω(sess.ExitCode()).Should(Equal(0))
+
+					Ω(atcServer.ReceivedRequests()).Should(HaveLen(2))
+				})
+
 				It("bails if the user rejects the diff", func() {
 					flyCmd := exec.Command(flyPath, "-t", atcServer.URL()+"/", "configure", "awesome-pipeline", "-c", configFile.Name())
 

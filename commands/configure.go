@@ -24,6 +24,7 @@ import (
 
 func Configure(c *cli.Context) {
 	var paused PipelineAction
+	forceConfiguration := false
 
 	target := returnTarget(c.GlobalString("target"))
 	insecure := c.GlobalBool("insecure")
@@ -43,6 +44,10 @@ func Configure(c *cli.Context) {
 		paused = DoNotChangePipeline
 	}
 
+	if c.IsSet("force") {
+		forceConfiguration = true
+	}
+
 	if pipelineName == "" {
 		failf("please specify a pipeline name as an argument!")
 	}
@@ -59,7 +64,7 @@ func Configure(c *cli.Context) {
 	if configPath == "" {
 		atcConfig.Dump(asJSON)
 	} else {
-		atcConfig.Set(paused, configPath, templateVariables, templateVariablesFile)
+		atcConfig.Set(paused, configPath, templateVariables, templateVariablesFile, forceConfiguration)
 	}
 }
 
@@ -106,17 +111,17 @@ func failWithErrorf(message string, err error, args ...interface{}) {
 	failf(templatedMessage + ": " + err.Error())
 }
 
-func (atcConfig ATCConfig) Set(paused PipelineAction, configPath string, templateVariables []string, templateVariablesFile []string) {
-	newConfig, newRawConfig := atcConfig.newConfig(configPath, templateVariablesFile, templateVariables)
+func (atcConfig ATCConfig) Set(paused PipelineAction, configPath string, templateVariables []string, templateVariablesFile []string, forceConfiguration bool) {
+	newConfig, newRawConfig := atcConfig.newConfig(configPath, templateVariablesFile, templateVariables, forceConfiguration)
 	existingConfig, existingConfigVersion := atcConfig.existingConfig()
 
-	diff(existingConfig, newConfig)
+	diff(existingConfig, newConfig, forceConfiguration)
 
 	resp := atcConfig.submitConfig(newRawConfig, paused, existingConfigVersion)
 	atcConfig.showHelpfulMessage(resp, paused)
 }
 
-func (atcConfig ATCConfig) newConfig(configPath string, templateVariablesFiles []string, templateVariables []string) (atc.Config, []byte) {
+func (atcConfig ATCConfig) newConfig(configPath string, templateVariablesFiles []string, templateVariables []string, forceConfiguration bool) (atc.Config, []byte) {
 	configFile, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		failWithErrorf("could not read config file", err)
@@ -274,7 +279,7 @@ func (atcConfig ATCConfig) showHelpfulMessage(resp *http.Response, paused Pipeli
 	}
 }
 
-func diff(existingConfig atc.Config, newConfig atc.Config) {
+func diff(existingConfig atc.Config, newConfig atc.Config, forceConfiguration bool) {
 	indent := gexec.NewPrefixedWriter("  ", os.Stdout)
 
 	groupDiffs := diffIndices(GroupIndex(existingConfig.Groups), GroupIndex(newConfig.Groups))
@@ -304,8 +309,10 @@ func diff(existingConfig atc.Config, newConfig atc.Config) {
 		}
 	}
 
-	if !askToConfirm("apply configuration?") {
-		println("bailing out")
-		os.Exit(1)
+	if !forceConfiguration {
+		if !askToConfirm("apply configuration?") {
+			println("bailing out")
+			os.Exit(1)
+		}
 	}
 }

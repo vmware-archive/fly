@@ -121,6 +121,11 @@ var pausedFlag = cli.BoolFlag{
 	Usage: "should the pipeline start out as paused or unpaused (true/false)",
 }
 
+var forceConfigurationFlag = cli.BoolFlag{
+	Name:  "force",
+	Usage: "no confirmation is needed when configuring a pipeline",
+}
+
 var apiFlag = cli.StringFlag{
 	Name:  "api",
 	Usage: "api url to target",
@@ -188,6 +193,7 @@ func main() {
 				varFlag,
 				varFileFlag,
 				pausedFlag,
+				forceConfigurationFlag,
 			},
 			Action: commands.Configure,
 		},
