@@ -15,9 +15,10 @@ import (
 
 type LoginCommand struct {
 	ATCURL   string `short:"c" long:"concourse-url" description:"Concourse URL to authenticate with"`
-	Insecure bool   `short:"k" long:"insecure" description:"Skip verification of the endpoint's SSL certificate"`
-	Username string `short:"u" long:"username" description:"Username for basic auth"`
-	Password string `short:"p" long:"password" description:"Password for basic auth"`
+	Insecure bool   `short:"k" long:"insecure"      description:"Skip verification of the endpoint's SSL certificate"`
+	Username string `short:"u" long:"username"      description:"Username for basic auth"`
+	Password string `short:"p" long:"password"      description:"Password for basic auth"`
+	Token    string `          long:"token"         description:"Token for OAuth"`
 }
 
 func (command *LoginCommand) Execute(args []string) error {
@@ -56,7 +57,24 @@ func (command *LoginCommand) Execute(args []string) error {
 		if chosenMethod.Type == "" {
 			return errors.New("basic auth is not available")
 		}
-	} else {
+	} else if command.Token != "" {
+		oauths := []atc.AuthMethod{}
+
+		for _, method := range authMethods {
+			if method.Type == atc.AuthTypeOAuth {
+				oauths = append(oauths, method)
+			}
+		}
+
+		switch len(oauths) {
+		case 0:
+			return errors.New("oauth is not available")
+		case 1:
+			chosenMethod = oauths[0]
+		}
+	}
+
+	if chosenMethod.Type == "" {
 		switch len(authMethods) {
 		case 0:
 			return command.saveTarget(
@@ -94,12 +112,18 @@ func (command *LoginCommand) loginWith(method atc.AuthMethod, connection concour
 		fmt.Printf("    %s\n", method.AuthURL)
 		fmt.Println("")
 
+		var triedToken bool
 		for {
 			var tokenStr string
 
-			err := interact.NewInteraction("enter token").Resolve(interact.Required(&tokenStr))
-			if err != nil {
-				return err
+			if command.Token != "" && !triedToken {
+				tokenStr = command.Token
+				triedToken = true
+			} else {
+				err := interact.NewInteraction("enter token").Resolve(interact.Required(&tokenStr))
+				if err != nil {
+					return err
+				}
 			}
 
 			segments := strings.SplitN(tokenStr, " ", 2)
