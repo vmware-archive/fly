@@ -112,6 +112,7 @@ var _ = Describe("login Command", func() {
 							sess, err := gexec.Start(flyCmd, GinkgoWriter, GinkgoWriter)
 							Expect(err).NotTo(HaveOccurred())
 
+							Eventually(sess.Out).ShouldNot(gbytes.Say("navigate to the following URL in your browser"))
 							Eventually(sess.Out).Should(gbytes.Say("target saved"))
 						})
 					})
@@ -122,7 +123,7 @@ var _ = Describe("login Command", func() {
 								"-t", "some-target",
 								"login",
 								"-c", atcServer.URL(),
-								"--token", "Bearer Gryllz",
+								"--token", "fffffffffff",
 							)
 
 							sess, err := gexec.Start(flyCmd, GinkgoWriter, GinkgoWriter)

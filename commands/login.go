@@ -107,11 +107,6 @@ func (command *LoginCommand) loginWith(method atc.AuthMethod, connection concour
 
 	switch method.Type {
 	case atc.AuthTypeOAuth:
-		fmt.Println("navigate to the following URL in your browser:")
-		fmt.Println("")
-		fmt.Printf("    %s\n", method.AuthURL)
-		fmt.Println("")
-
 		var triedToken bool
 		for {
 			var tokenStr string
@@ -120,6 +115,11 @@ func (command *LoginCommand) loginWith(method atc.AuthMethod, connection concour
 				tokenStr = command.Token
 				triedToken = true
 			} else {
+				fmt.Println("navigate to the following URL in your browser:")
+				fmt.Println("")
+				fmt.Printf("    %s\n", method.AuthURL)
+				fmt.Println("")
+
 				err := interact.NewInteraction("enter token").Resolve(interact.Required(&tokenStr))
 				if err != nil {
 					return err
