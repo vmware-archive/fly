@@ -159,7 +159,7 @@ func remoteCommand(argv []string) (string, []string) {
 
 	switch len(argv) {
 	case 0:
-		path = "bash"
+		path = "bash || sh"
 	case 1:
 		path = argv[0]
 	default:
