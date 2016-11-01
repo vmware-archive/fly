@@ -37,7 +37,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "")
 			fmt.Fprintln(os.Stderr, "    "+ui.Embolden("%s", netErr))
 			fmt.Fprintln(os.Stderr, "")
-			fmt.Fprintln(os.Stderr, "is the targeted Concourse running? better go catch it lol")
+			fmt.Fprintln(os.Stderr, "is the targeted Concourse running?")
 		} else if err == commands.ErrShowHelpMessage {
 			helpParser := flags.NewParser(&commands.Fly, flags.HelpFlag)
 			helpParser.NamespaceDelimiter = "-"
