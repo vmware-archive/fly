@@ -36,6 +36,7 @@ func (e ErrVersionMismatch) Error() string {
 
 type Target interface {
 	Client() concourse.Client
+	HTTPClient() *http.Client
 	Team() concourse.Team
 	CACert() string
 	Validate() error
@@ -233,6 +234,10 @@ func NewNoAuthTarget(
 
 func (t *target) Client() concourse.Client {
 	return t.client
+}
+
+func (t *target) HTTPClient() *http.Client {
+	return t.client.HTTPClient()
 }
 
 func (t *target) Team() concourse.Team {
