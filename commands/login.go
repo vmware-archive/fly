@@ -16,12 +16,14 @@ import (
 )
 
 type LoginCommand struct {
-	ATCURL   string       `short:"c" long:"concourse-url" description:"Concourse URL to authenticate with"`
-	Insecure bool         `short:"k" long:"insecure" description:"Skip verification of the endpoint's SSL certificate"`
-	Username string       `short:"u" long:"username" description:"Username for basic auth"`
-	Password string       `short:"p" long:"password" description:"Password for basic auth"`
-	TeamName string       `short:"n" long:"team-name" description:"Team to authenticate with" default:"main"`
-	CACert   atc.PathFlag `long:"ca-cert" description:"Path to Concourse PEM-encoded CA certificate file."`
+	ATCURL        string       `short:"c" long:"concourse-url" description:"Concourse URL to authenticate with"`
+	Insecure      bool         `short:"k" long:"insecure" description:"Skip verification of the endpoint's SSL certificate"`
+	Username      string       `short:"u" long:"username" description:"Username for basic auth"`
+	Password      string       `short:"p" long:"password" description:"Password for basic auth"`
+	TeamName      string       `short:"n" long:"team-name" description:"Team to authenticate with" default:"main"`
+	CACert        atc.PathFlag `long:"ca-cert" description:"Path to Concourse PEM-encoded CA certificate file."`
+	ClientCert    atc.PathFlag `long:"client-cert" description:"Path to Concourse PEM-encoded client certificate file."`
+	ClientCertKey atc.PathFlag `long:"client-cert-key" description:"Path to Concourse PEM-encoded client certificate private key file."`
 }
 
 func (command *LoginCommand) Execute(args []string) error {
@@ -41,6 +43,24 @@ func (command *LoginCommand) Execute(args []string) error {
 		caCert = string(caCertBytes)
 	}
 
+	var clientCert string
+	var clientCertKey string
+	if (command.ClientCertKey != "" && command.ClientCert == "") || (command.ClientCertKey == "" && command.ClientCert != "") {
+		return errors.New("--client-cert and --client-cert-key must be both specified if client cert is used")
+	}
+	if command.ClientCert != "" {
+		clientCertBytes, err := ioutil.ReadFile(string(command.ClientCert))
+		if err != nil {
+			return err
+		}
+		clientCertKeyBytes, err := ioutil.ReadFile(string(command.ClientCertKey))
+		if err != nil {
+			return err
+		}
+		clientCert = string(clientCertBytes)
+		clientCertKey = string(clientCertKeyBytes)
+	}
+
 	if command.ATCURL != "" {
 		target, err = rc.NewUnauthenticatedTarget(
 			Fly.Target,
@@ -48,6 +68,8 @@ func (command *LoginCommand) Execute(args []string) error {
 			command.TeamName,
 			command.Insecure,
 			caCert,
+			clientCert,
+			clientCertKey,
 		)
 	} else {
 		target, err = rc.LoadTargetWithInsecure(
@@ -55,6 +77,8 @@ func (command *LoginCommand) Execute(args []string) error {
 			command.TeamName,
 			command.Insecure,
 			caCert,
+			clientCert,
+			clientCertKey,
 		)
 	}
 	if err != nil {
@@ -92,6 +116,8 @@ func (command *LoginCommand) Execute(args []string) error {
 				command.TeamName,
 				command.Insecure,
 				target.CACert(),
+				target.ClientCert(),
+				target.ClientCertKey(),
 			)
 			if err != nil {
 				return err
@@ -109,6 +135,8 @@ func (command *LoginCommand) Execute(args []string) error {
 					Value: token.Value,
 				},
 				target.CACert(),
+				target.ClientCert(),
+				target.ClientCertKey(),
 			)
 		case 1:
 			chosenMethod = authMethods[0]
@@ -141,6 +169,8 @@ func (command *LoginCommand) Execute(args []string) error {
 			Value: token.Value,
 		},
 		target.CACert(),
+		target.ClientCert(),
+		target.ClientCertKey(),
 	)
 }
 
@@ -225,6 +255,24 @@ func (command *LoginCommand) loginWith(
 			password = string(interactivePassword)
 		}
 
+		var clientCert string
+		var clientCertKey string
+		if (command.ClientCertKey != "" && command.ClientCert == "") || (command.ClientCertKey == "" && command.ClientCert != "") {
+			return nil, errors.New("--client-cert and --client-cert-key must be both specified if client cert is used")
+		}
+		if command.ClientCert != "" {
+			clientCertBytes, err := ioutil.ReadFile(string(command.ClientCert))
+			if err != nil {
+				return nil, err
+			}
+			clientCertKeyBytes, err := ioutil.ReadFile(string(command.ClientCertKey))
+			if err != nil {
+				return nil, err
+			}
+			clientCert = string(clientCertBytes)
+			clientCertKey = string(clientCertKeyBytes)
+		}
+
 		target, err := rc.NewBasicAuthTarget(
 			Fly.Target,
 			client.URL(),
@@ -233,6 +281,8 @@ func (command *LoginCommand) loginWith(
 			username,
 			password,
 			caCert,
+			clientCert,
+			clientCertKey,
 		)
 		if err != nil {
 			return nil, err
@@ -269,7 +319,7 @@ func waitForTokenInput(tokenChannel chan string, errorChannel chan error) {
 	}
 }
 
-func (command *LoginCommand) saveTarget(url string, token *rc.TargetToken, caCert string) error {
+func (command *LoginCommand) saveTarget(url string, token *rc.TargetToken, caCert string, clientCert string, clientCertKey string) error {
 	err := rc.SaveTarget(
 		Fly.Target,
 		url,
@@ -280,6 +330,8 @@ func (command *LoginCommand) saveTarget(url string, token *rc.TargetToken, caCer
 			Value: token.Value,
 		},
 		caCert,
+		clientCert,
+		clientCertKey,
 	)
 	if err != nil {
 		return err

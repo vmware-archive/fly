@@ -24,16 +24,22 @@ func (err UnknownTargetError) Error() string {
 }
 
 type TargetProps struct {
-	API      string       `yaml:"api"`
-	TeamName string       `yaml:"team"`
-	Insecure bool         `yaml:"insecure,omitempty"`
-	Token    *TargetToken `yaml:"token,omitempty"`
-	CACert   string       `yaml:"ca_cert,omitempty"`
+	API        string       `yaml:"api"`
+	TeamName   string       `yaml:"team"`
+	Insecure   bool         `yaml:"insecure,omitempty"`
+	Token      *TargetToken `yaml:"token,omitempty"`
+	CACert     string       `yaml:"ca_cert,omitempty"`
+	ClientCert *ClientCert  `yaml:"client_cert,omitempty"`
 }
 
 type TargetToken struct {
 	Type  string `yaml:"type"`
 	Value string `yaml:"value"`
+}
+
+type ClientCert struct {
+	Cert string `yaml:"cert"`
+	Key  string `yaml:"key"`
 }
 
 type targetDetailsYAML struct {
@@ -64,6 +70,8 @@ func SaveTarget(
 	teamName string,
 	token *TargetToken,
 	caCert string,
+	clientCert string,
+	clientCertKey string,
 ) error {
 	flyTargets, err := LoadTargets()
 	if err != nil {
@@ -77,6 +85,7 @@ func SaveTarget(
 	newInfo.Token = token
 	newInfo.TeamName = teamName
 	newInfo.CACert = caCert
+	newInfo.ClientCert = &ClientCert{Cert: clientCert, Key: clientCertKey}
 
 	flyTargets.Targets[targetName] = newInfo
 	return writeTargets(flyrc, flyTargets)
