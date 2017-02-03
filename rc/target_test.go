@@ -76,6 +76,7 @@ AA9WjQKZ7aKQRUzkuxCkPfAyAw7xzvjoyVGM5mKf5p/AfbdynMk2OmufTqj/ZA1k
 				base, ok := (*transport).Base.(*http.Transport)
 				Expect(ok).To(BeTrue())
 				Expect((*base).TLSClientConfig).To(Equal(&tls.Config{
+					Certificates:       []tls.Certificate{},
 					InsecureSkipVerify: true,
 					RootCAs:            nil,
 				}))
@@ -126,6 +127,7 @@ AA9WjQKZ7aKQRUzkuxCkPfAyAw7xzvjoyVGM5mKf5p/AfbdynMk2OmufTqj/ZA1k
 				Expect(ok).To(BeTrue())
 
 				Expect((*base).TLSClientConfig).To(Equal(&tls.Config{
+					Certificates:       []tls.Certificate{},
 					InsecureSkipVerify: false,
 					RootCAs:            expectedCaCertPool,
 				}))

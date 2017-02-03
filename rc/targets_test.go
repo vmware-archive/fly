@@ -71,6 +71,8 @@ var _ = Describe("Targets", func() {
 						"main",
 						nil,
 						"",
+						"",
+						"",
 					)
 					Expect(err).ToNot(HaveOccurred())
 				})
@@ -94,6 +96,8 @@ var _ = Describe("Targets", func() {
 						"main",
 						nil,
 						rsaCertPEM,
+						"",
+						"",
 					)
 					Expect(err).ToNot(HaveOccurred())
 				})
@@ -119,6 +123,8 @@ var _ = Describe("Targets", func() {
 						"main",
 						nil,
 						"",
+						"",
+						"",
 					)
 					Expect(err).ToNot(HaveOccurred())
 				})
@@ -141,6 +147,8 @@ var _ = Describe("Targets", func() {
 						true,
 						"main",
 						nil,
+						"",
+						"",
 						"",
 					)
 					Expect(err).ToNot(HaveOccurred())

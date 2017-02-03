@@ -38,6 +38,8 @@ type Target interface {
 	Client() concourse.Client
 	Team() concourse.Team
 	CACert() string
+	ClientCert() string
+	ClientCertKey() string
 	Validate() error
 	ValidateWithWarningOnly() error
 	TLSConfig() *tls.Config
@@ -47,13 +49,16 @@ type Target interface {
 }
 
 type target struct {
-	name      TargetName
-	teamName  string
-	caCert    string
-	tlsConfig *tls.Config
-	client    concourse.Client
-	url       string
-	token     *TargetToken
+	name              TargetName
+	teamName          string
+	caCert            string
+	clientCert        string
+	clientCertKey     string
+	clientCertificate *tls.Certificate
+	tlsConfig         *tls.Config
+	client            concourse.Client
+	url               string
+	token             *TargetToken
 }
 
 func newTarget(
@@ -63,6 +68,9 @@ func newTarget(
 	token *TargetToken,
 	caCert string,
 	caCertPool *x509.CertPool,
+	clientCert string,
+	clientCertKey string,
+	clientCertificate *tls.Certificate,
 	insecure bool,
 	client concourse.Client,
 ) *target {
@@ -72,13 +80,16 @@ func newTarget(
 	}
 
 	return &target{
-		name:      name,
-		teamName:  teamName,
-		url:       url,
-		token:     token,
-		caCert:    caCert,
-		tlsConfig: tlsConfig,
-		client:    client,
+		name:              name,
+		teamName:          teamName,
+		url:               url,
+		token:             token,
+		caCert:            caCert,
+		clientCert:        clientCert,
+		clientCertKey:     clientCertKey,
+		clientCertificate: clientCertificate,
+		tlsConfig:         tlsConfig,
+		client:            client,
 	}
 }
 
@@ -93,7 +104,23 @@ func LoadTarget(selectedTarget TargetName) (Target, error) {
 		return nil, err
 	}
 
-	httpClient := defaultHttpClient(targetProps.Token, targetProps.Insecure, caCertPool)
+	var clientCertificate *tls.Certificate
+	clientCert := ""
+	clientCertKey := ""
+	clientCertData := targetProps.ClientCert
+	if clientCertData != nil {
+		clientCert = clientCertData.Cert
+		clientCertKey = clientCertData.Key
+		if clientCert != "" && clientCertKey != "" {
+			cert, err := tls.X509KeyPair([]byte(clientCertData.Cert), []byte(clientCertData.Key))
+			if err != nil {
+				return nil, err
+			}
+			clientCertificate = &cert
+		}
+	}
+
+	httpClient := defaultHttpClient(targetProps.Token, targetProps.Insecure, caCertPool, clientCertificate)
 	client := concourse.NewClient(targetProps.API, httpClient)
 
 	return newTarget(
@@ -103,6 +130,9 @@ func LoadTarget(selectedTarget TargetName) (Target, error) {
 		targetProps.Token,
 		targetProps.CACert,
 		caCertPool,
+		clientCert,
+		clientCertKey,
+		clientCertificate,
 		targetProps.Insecure,
 		client,
 	), nil
@@ -113,6 +143,8 @@ func LoadTargetWithInsecure(
 	teamName string,
 	commandInsecure bool,
 	caCert string,
+	clientCert string,
+	clientCertKey string,
 ) (Target, error) {
 	targetProps, err := selectTarget(selectedTarget)
 	if err != nil {
@@ -127,6 +159,14 @@ func LoadTargetWithInsecure(
 		caCert = targetProps.CACert
 	}
 
+	if clientCert == "" || clientCertKey == "" {
+		clientCertData := targetProps.ClientCert
+		if clientCertData != nil {
+			clientCert = clientCertData.Cert
+			clientCertKey = clientCertData.Key
+		}
+	}
+
 	if commandInsecure {
 		caCert = ""
 	}
@@ -136,7 +176,16 @@ func LoadTargetWithInsecure(
 		return nil, err
 	}
 
-	httpClient := defaultHttpClient(targetProps.Token, commandInsecure, caCertPool)
+	var clientCertificate *tls.Certificate
+	if clientCert != "" && clientCertKey != "" {
+		cert, err := tls.X509KeyPair([]byte(clientCert), []byte(clientCertKey))
+		if err != nil {
+			return nil, err
+		}
+		clientCertificate = &cert
+	}
+
+	httpClient := defaultHttpClient(targetProps.Token, commandInsecure, caCertPool, clientCertificate)
 
 	return newTarget(
 		selectedTarget,
@@ -145,6 +194,9 @@ func LoadTargetWithInsecure(
 		targetProps.Token,
 		caCert,
 		caCertPool,
+		clientCert,
+		clientCertKey,
+		clientCertificate,
 		targetProps.Insecure,
 		concourse.NewClient(targetProps.API, httpClient),
 	), nil
@@ -156,13 +208,24 @@ func NewUnauthenticatedTarget(
 	teamName string,
 	insecure bool,
 	caCert string,
+	clientCert string,
+	clientCertKey string,
 ) (Target, error) {
 	caCertPool, err := loadCACertPool(caCert)
 	if err != nil {
 		return nil, err
 	}
 
-	httpClient := unauthenticatedHttpClient(insecure, caCertPool)
+	var clientCertificate *tls.Certificate
+	if clientCert != "" && clientCertKey != "" {
+		cert, err := tls.X509KeyPair([]byte(clientCert), []byte(clientCertKey))
+		if err != nil {
+			return nil, err
+		}
+		clientCertificate = &cert
+	}
+
+	httpClient := unauthenticatedHttpClient(insecure, caCertPool, clientCertificate)
 	client := concourse.NewClient(url, httpClient)
 	return newTarget(
 		name,
@@ -171,6 +234,9 @@ func NewUnauthenticatedTarget(
 		nil,
 		caCert,
 		caCertPool,
+		clientCert,
+		clientCertKey,
+		clientCertificate,
 		insecure,
 		client,
 	), nil
@@ -184,12 +250,24 @@ func NewBasicAuthTarget(
 	username string,
 	password string,
 	caCert string,
+	clientCert string,
+	clientCertKey string,
 ) (Target, error) {
 	caCertPool, err := loadCACertPool(caCert)
 	if err != nil {
 		return nil, err
 	}
-	httpClient := basicAuthHttpClient(username, password, insecure, caCertPool)
+
+	var clientCertificate *tls.Certificate
+	if clientCert != "" && clientCertKey != "" {
+		cert, err := tls.X509KeyPair([]byte(clientCert), []byte(clientCertKey))
+		if err != nil {
+			return nil, err
+		}
+		clientCertificate = &cert
+	}
+
+	httpClient := basicAuthHttpClient(username, password, insecure, caCertPool, clientCertificate)
 	client := concourse.NewClient(url, httpClient)
 
 	return newTarget(
@@ -199,6 +277,9 @@ func NewBasicAuthTarget(
 		nil,
 		caCert,
 		caCertPool,
+		clientCert,
+		clientCertKey,
+		clientCertificate,
 		insecure,
 		client,
 	), nil
@@ -210,13 +291,24 @@ func NewNoAuthTarget(
 	teamName string,
 	insecure bool,
 	caCert string,
+	clientCert string,
+	clientCertKey string,
 ) (Target, error) {
 	caCertPool, err := loadCACertPool(caCert)
 	if err != nil {
 		return nil, err
 	}
 
-	httpClient := &http.Client{Transport: transport(insecure, caCertPool)}
+	var clientCertificate *tls.Certificate
+	if clientCert != "" && clientCertKey != "" {
+		cert, err := tls.X509KeyPair([]byte(clientCert), []byte(clientCertKey))
+		if err != nil {
+			return nil, err
+		}
+		clientCertificate = &cert
+	}
+
+	httpClient := &http.Client{Transport: transport(insecure, caCertPool, clientCertificate)}
 	client := concourse.NewClient(url, httpClient)
 
 	return newTarget(
@@ -226,6 +318,9 @@ func NewNoAuthTarget(
 		nil,
 		caCert,
 		caCertPool,
+		clientCert,
+		clientCertKey,
+		clientCertificate,
 		insecure,
 		client,
 	), nil
@@ -241,6 +336,14 @@ func (t *target) Team() concourse.Team {
 
 func (t *target) CACert() string {
 	return t.caCert
+}
+
+func (t *target) ClientCert() string {
+	return t.clientCert
+}
+
+func (t *target) ClientCertKey() string {
+	return t.clientCertKey
 }
 
 func (t *target) TLSConfig() *tls.Config {
@@ -303,13 +406,13 @@ func (t *target) validate(allowVersionMismatch bool) error {
 	return nil
 }
 
-func unauthenticatedHttpClient(insecure bool, caCertPool *x509.CertPool) *http.Client {
+func unauthenticatedHttpClient(insecure bool, caCertPool *x509.CertPool, clientCertificate *tls.Certificate) *http.Client {
 	return &http.Client{
-		Transport: transport(insecure, caCertPool),
+		Transport: transport(insecure, caCertPool, clientCertificate),
 	}
 }
 
-func defaultHttpClient(token *TargetToken, insecure bool, caCertPool *x509.CertPool) *http.Client {
+func defaultHttpClient(token *TargetToken, insecure bool, caCertPool *x509.CertPool, clientCertificate *tls.Certificate) *http.Client {
 	var oAuthToken *oauth2.Token
 	if token != nil {
 		oAuthToken = &oauth2.Token{
@@ -318,7 +421,7 @@ func defaultHttpClient(token *TargetToken, insecure bool, caCertPool *x509.CertP
 		}
 	}
 
-	transport := transport(insecure, caCertPool)
+	transport := transport(insecure, caCertPool, clientCertificate)
 
 	if token != nil {
 		transport = &oauth2.Transport{
@@ -361,23 +464,30 @@ func basicAuthHttpClient(
 	password string,
 	insecure bool,
 	caCertPool *x509.CertPool,
+	clientCertificate *tls.Certificate,
 ) *http.Client {
 	return &http.Client{
 		Transport: basicAuthTransport{
 			username: username,
 			password: password,
-			base:     transport(insecure, caCertPool),
+			base:     transport(insecure, caCertPool, clientCertificate),
 		},
 	}
 }
 
-func transport(insecure bool, caCertPool *x509.CertPool) http.RoundTripper {
+func transport(insecure bool, caCertPool *x509.CertPool, clientCertificate *tls.Certificate) http.RoundTripper {
 	var transport http.RoundTripper
+
+	clientCerts := []tls.Certificate{}
+	if clientCertificate != nil {
+		clientCerts = []tls.Certificate{*clientCertificate}
+	}
 
 	transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: insecure,
 			RootCAs:            caCertPool,
+			Certificates:       clientCerts,
 		},
 		Dial: (&net.Dialer{
 			Timeout: 10 * time.Second,
