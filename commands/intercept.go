@@ -11,8 +11,8 @@ import (
 	"github.com/concourse/atc"
 	"github.com/concourse/fly/commands/internal/displayhelpers"
 	"github.com/concourse/fly/commands/internal/flaghelpers"
-	"github.com/concourse/fly/commands/internal/hijacker"
-	"github.com/concourse/fly/commands/internal/hijackhelpers"
+	"github.com/concourse/fly/commands/internal/interceptor"
+	"github.com/concourse/fly/commands/internal/interceptorhelpers"
 	"github.com/concourse/fly/pty"
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/go-concourse/concourse"
@@ -20,18 +20,18 @@ import (
 	"github.com/vito/go-interact/interact"
 )
 
-type HijackCommand struct {
-	Job            flaghelpers.JobFlag      `short:"j" long:"job"   value-name:"PIPELINE/JOB"   description:"Name of a job to hijack"`
-	Check          flaghelpers.ResourceFlag `short:"c" long:"check" value-name:"PIPELINE/CHECK" description:"Name of a resource's checking container to hijack"`
+type InterceptCommand struct {
+	Job            flaghelpers.JobFlag      `short:"j" long:"job"   value-name:"PIPELINE/JOB"   description:"Name of a job to intercept"`
+	Check          flaghelpers.ResourceFlag `short:"c" long:"check" value-name:"PIPELINE/CHECK" description:"Name of a resource's checking container to intercept"`
 	Build          string                   `short:"b" long:"build"                             description:"Build number within the job, or global build ID"`
-	StepName       string                   `short:"s" long:"step"                              description:"Name of step to hijack (e.g. build, unit, resource name)"`
-	Attempt        string                   `short:"a" long:"attempt" value-name:"N[,N,...]"    description:"Attempt number of step to hijack."`
+	StepName       string                   `short:"s" long:"step"                              description:"Name of step to intercept (e.g. build, unit, resource name)"`
+	Attempt        string                   `short:"a" long:"attempt" value-name:"N[,N,...]" description:"Attempt number of step to intercept."`
 	PositionalArgs struct {
 		Command []string `positional-arg-name:"command" description:"The command to run in the container (default: bash)"`
 	} `positional-args:"yes"`
 }
 
-func (command *HijackCommand) Execute([]string) error {
+func (command *InterceptCommand) Execute([]string) error {
 	target, err := rc.LoadTarget(Fly.Target)
 	if err != nil {
 		return err
@@ -139,15 +139,15 @@ func (command *HijackCommand) Execute([]string) error {
 			in = os.Stdin
 		}
 
-		io := hijacker.ProcessIO{
+		io := interceptor.ProcessIO{
 			In:  in,
 			Out: os.Stdout,
 			Err: os.Stderr,
 		}
 
-		h := hijacker.New(target.TLSConfig(), reqGenerator, target.Token())
+		i := interceptor.New(target.TLSConfig(), reqGenerator, target.Token())
 
-		return h.Hijack(chosenContainer.ID, spec, io)
+		return i.Intercept(chosenContainer.ID, spec, io)
 	}()
 
 	if err != nil {
@@ -159,7 +159,7 @@ func (command *HijackCommand) Execute([]string) error {
 	return nil
 }
 
-func (command *HijackCommand) getContainerIDs(client concourse.Client) ([]atc.Container, error) {
+func (command *InterceptCommand) getContainerIDs(client concourse.Client) ([]atc.Container, error) {
 	var pipelineName string
 	if command.Job.PipelineName != "" {
 		pipelineName = command.Job.PipelineName
@@ -191,7 +191,7 @@ func (command *HijackCommand) getContainerIDs(client concourse.Client) ([]atc.Co
 	if err != nil {
 		return nil, err
 	}
-	sort.Sort(hijackhelpers.ContainerSorter(containers))
+	sort.Sort(interceptorhelpers.ContainerSorter(containers))
 
 	return containers, nil
 }

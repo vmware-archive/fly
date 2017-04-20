@@ -15,15 +15,15 @@ import (
 	"github.com/onsi/gomega/ghttp"
 )
 
-var _ = Describe("Hijacking", func() {
-	var hijacked <-chan struct{}
+var _ = Describe("Intercepting", func() {
+	var intercepted <-chan struct{}
 	var workingDirectory string
 	var user string
 	var path string
 	var args []string
 
 	BeforeEach(func() {
-		hijacked = nil
+		intercepted = nil
 		workingDirectory = ""
 		user = "root"
 		path = "bash"
@@ -32,7 +32,7 @@ var _ = Describe("Hijacking", func() {
 
 	upgrader := websocket.Upgrader{}
 
-	hijackHandler := func(id string, didHijack chan<- struct{}, errorMessages []string) http.HandlerFunc {
+	interceptHandler := func(id string, didIntercept chan<- struct{}, errorMessages []string) http.HandlerFunc {
 		return ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", fmt.Sprintf("/api/v1/containers/%s/hijack", id)),
 			func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +43,7 @@ var _ = Describe("Hijacking", func() {
 
 				defer conn.Close()
 
-				close(didHijack)
+				close(didIntercept)
 
 				var processSpec atc.HijackProcessSpec
 				err = conn.ReadJSON(&processSpec)
@@ -113,7 +113,7 @@ var _ = Describe("Hijacking", func() {
 		sess, err := gexec.Start(flyCmd, GinkgoWriter, GinkgoWriter)
 		Expect(err).NotTo(HaveOccurred())
 
-		Eventually(hijacked).Should(BeClosed())
+		Eventually(intercepted).Should(BeClosed())
 
 		_, err = fmt.Fprintf(stdin, "some stdin")
 		Expect(err).NotTo(HaveOccurred())
@@ -128,14 +128,14 @@ var _ = Describe("Hijacking", func() {
 		Expect(sess.ExitCode()).To(Equal(123))
 	}
 
-	hijack := func(args ...string) {
-		fly("hijack", args...)
+	intercept := func(args ...string) {
+		fly("intercept", args...)
 	}
 
 	Context("with only a step name specified", func() {
 		BeforeEach(func() {
-			didHijack := make(chan struct{})
-			hijacked = didHijack
+			didIntercept := make(chan struct{})
+			intercepted = didIntercept
 
 			atcServer.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -153,23 +153,23 @@ var _ = Describe("Hijacking", func() {
 						{ID: "container-id-1", BuildID: 3, Type: "task", StepName: "some-step", User: user},
 					}),
 				),
-				hijackHandler("container-id-1", didHijack, nil),
+				interceptHandler("container-id-1", didIntercept, nil),
 			)
 		})
 
-		It("hijacks the most recent one-off build", func() {
-			hijack("-s", "some-step")
+		It("intercepts the most recent one-off build", func() {
+			intercept("-s", "some-step")
 		})
 
-		It("hijacks the most recent one-off build with a more politically correct command", func() {
+		It("intercepts the most recent one-off build with a more politically correct command", func() {
 			fly("intercept", "-s", "some-step")
 		})
 	})
 
 	Context("when the container specifies a working directory", func() {
 		BeforeEach(func() {
-			didHijack := make(chan struct{})
-			hijacked = didHijack
+			didIntercept := make(chan struct{})
+			intercepted = didIntercept
 			workingDirectory = "/tmp/build/my-favorite-guid"
 
 			atcServer.AppendHandlers(
@@ -185,19 +185,19 @@ var _ = Describe("Hijacking", func() {
 						{ID: "container-id-1", BuildID: 3, Type: "task", StepName: "some-step", WorkingDirectory: workingDirectory, User: user},
 					}),
 				),
-				hijackHandler("container-id-1", didHijack, nil),
+				interceptHandler("container-id-1", didIntercept, nil),
 			)
 		})
 
-		It("hijacks the most recent one-off build in the specified working directory", func() {
-			hijack("-s", "some-step")
+		It("intercepts the most recent one-off build in the specified working directory", func() {
+			intercept("-s", "some-step")
 		})
 	})
 
 	Context("when the container specifies a user", func() {
 		BeforeEach(func() {
-			didHijack := make(chan struct{})
-			hijacked = didHijack
+			didIntercept := make(chan struct{})
+			intercepted = didIntercept
 			user = "amelia"
 
 			atcServer.AppendHandlers(
@@ -213,19 +213,19 @@ var _ = Describe("Hijacking", func() {
 						{ID: "container-id-1", BuildID: 3, Type: "task", StepName: "some-step", User: "amelia"},
 					}),
 				),
-				hijackHandler("container-id-1", didHijack, nil),
+				interceptHandler("container-id-1", didIntercept, nil),
 			)
 		})
 
-		It("hijacks the most recent one-off build as the specified user", func() {
-			hijack("-s", "some-step")
+		It("intercepts the most recent one-off build as the specified user", func() {
+			intercept("-s", "some-step")
 		})
 	})
 
 	Context("when no containers are found", func() {
 		BeforeEach(func() {
-			didHijack := make(chan struct{})
-			hijacked = didHijack
+			didIntercept := make(chan struct{})
+			intercepted = didIntercept
 
 			atcServer.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -238,12 +238,12 @@ var _ = Describe("Hijacking", func() {
 					ghttp.VerifyRequest("GET", "/api/v1/containers", "build_id=1&step_name=some-step"),
 					ghttp.RespondWithJSONEncoded(200, []atc.Container{}),
 				),
-				hijackHandler("container-id-1", didHijack, nil),
+				interceptHandler("container-id-1", didIntercept, nil),
 			)
 		})
 
 		It("return a friendly error message", func() {
-			flyCmd := exec.Command(flyPath, "-t", targetName, "hijack", "-s", "some-step")
+			flyCmd := exec.Command(flyPath, "-t", targetName, "intercept", "-s", "some-step")
 			sess, err := gexec.Start(flyCmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -255,8 +255,8 @@ var _ = Describe("Hijacking", func() {
 
 	Context("when no containers are found", func() {
 		BeforeEach(func() {
-			didHijack := make(chan struct{})
-			hijacked = didHijack
+			didIntercept := make(chan struct{})
+			intercepted = didIntercept
 			atcServer.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/containers", "build_id=0"),
@@ -266,7 +266,7 @@ var _ = Describe("Hijacking", func() {
 		})
 
 		It("logs an error message and response status/body", func() {
-			flyCmd := exec.Command(flyPath, "-t", targetName, "hijack", "-b", "0")
+			flyCmd := exec.Command(flyPath, "-t", targetName, "intercept", "-b", "0")
 
 			stdin, err := flyCmd.StdinPipe()
 			Expect(err).NotTo(HaveOccurred())
@@ -286,8 +286,8 @@ var _ = Describe("Hijacking", func() {
 
 	Context("when multiple step containers are found", func() {
 		BeforeEach(func() {
-			didHijack := make(chan struct{})
-			hijacked = didHijack
+			didIntercept := make(chan struct{})
+			intercepted = didIntercept
 
 			atcServer.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -339,12 +339,12 @@ var _ = Describe("Hijacking", func() {
 						},
 					}),
 				),
-				hijackHandler("container-id-2", didHijack, nil),
+				interceptHandler("container-id-2", didIntercept, nil),
 			)
 		})
 
 		It("asks the user to select the container from a menu", func() {
-			flyCmd := exec.Command(flyPath, "-t", targetName, "hijack", "-j", "pipeline-name-1/some-job")
+			flyCmd := exec.Command(flyPath, "-t", targetName, "intercept", "-j", "pipeline-name-1/some-job")
 
 			stdin, err := flyCmd.StdinPipe()
 			Expect(err).NotTo(HaveOccurred())
@@ -361,7 +361,7 @@ var _ = Describe("Hijacking", func() {
 			_, err = fmt.Fprintf(stdin, "3\n")
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(hijacked).Should(BeClosed())
+			Eventually(intercepted).Should(BeClosed())
 
 			_, err = fmt.Fprintf(stdin, "some stdin")
 			Expect(err).NotTo(HaveOccurred())
@@ -377,22 +377,22 @@ var _ = Describe("Hijacking", func() {
 		})
 	})
 
-	Context("when hijack returns a single container", func() {
+	Context("when intercept returns a single container", func() {
 		var (
-			containerArguments string
-			stepType           string
-			stepName           string
-			buildID            int
-			hijackHandlerError []string
-			pipelineName       string
-			resourceName       string
-			jobName            string
-			buildName          string
-			attempt            string
+			containerArguments    string
+			stepType              string
+			stepName              string
+			buildID               int
+			interceptHandlerError []string
+			pipelineName          string
+			resourceName          string
+			jobName               string
+			buildName             string
+			attempt               string
 		)
 
 		BeforeEach(func() {
-			hijackHandlerError = nil
+			interceptHandlerError = nil
 			pipelineName = "a-pipeline"
 			jobName = ""
 			buildName = ""
@@ -401,13 +401,13 @@ var _ = Describe("Hijacking", func() {
 			stepName = ""
 			resourceName = ""
 			containerArguments = ""
-			hijackHandlerError = nil
+			interceptHandlerError = nil
 			attempt = ""
 		})
 
 		JustBeforeEach(func() {
-			didHijack := make(chan struct{})
-			hijacked = didHijack
+			didIntercept := make(chan struct{})
+			intercepted = didIntercept
 
 			atcServer.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -416,7 +416,7 @@ var _ = Describe("Hijacking", func() {
 						{ID: "container-id-1", WorkerName: "some-worker", PipelineName: pipelineName, JobName: jobName, BuildName: buildName, BuildID: buildID, Type: stepType, StepName: stepName, ResourceName: resourceName, Attempt: attempt, User: user},
 					}),
 				),
-				hijackHandler("container-id-1", didHijack, hijackHandlerError),
+				interceptHandler("container-id-1", didIntercept, interceptHandlerError),
 			)
 		})
 
@@ -431,7 +431,7 @@ var _ = Describe("Hijacking", func() {
 				})
 
 				It("can accept the check resources name and a pipeline", func() {
-					hijack("--check", "a-pipeline/some-resource-name")
+					intercept("--check", "a-pipeline/some-resource-name")
 				})
 			})
 		})
@@ -444,8 +444,8 @@ var _ = Describe("Hijacking", func() {
 				buildID = 2
 			})
 
-			It("hijacks the most recent one-off build", func() {
-				hijack("-b", "2", "-s", "some-step")
+			It("intercepts the most recent one-off build", func() {
+				intercept("-b", "2", "-s", "some-step")
 			})
 		})
 
@@ -459,8 +459,8 @@ var _ = Describe("Hijacking", func() {
 				stepName = "some-step"
 			})
 
-			It("hijacks the job's next build", func() {
-				hijack("--job", "some-pipeline/some-job", "--step", "some-step")
+			It("intercepts the job's next build", func() {
+				intercept("--job", "some-pipeline/some-job", "--step", "some-step")
 			})
 
 			Context("with a specific build of the job", func() {
@@ -468,8 +468,8 @@ var _ = Describe("Hijacking", func() {
 					containerArguments = "pipeline_name=some-pipeline&job_name=some-job&build_name=3&step_name=some-step"
 				})
 
-				It("hijacks the given build", func() {
-					hijack("--job", "some-pipeline/some-job", "--build", "3", "--step", "some-step")
+				It("intercepts the given build", func() {
+					intercept("--job", "some-pipeline/some-job", "--build", "3", "--step", "some-step")
 				})
 			})
 		})
@@ -485,8 +485,8 @@ var _ = Describe("Hijacking", func() {
 				attempt = "2.4"
 			})
 
-			It("hijacks the job's next build", func() {
-				hijack("--job", "some-pipeline/some-job", "--step", "some-step", "--attempt", "2.4")
+			It("intercepts the job's next build", func() {
+				intercept("--job", "some-pipeline/some-job", "--step", "some-step", "--attempt", "2.4")
 			})
 		})
 
@@ -501,20 +501,20 @@ var _ = Describe("Hijacking", func() {
 				buildID = 2
 			})
 
-			It("hijacks and runs the provided path with args", func() {
-				hijack("-b", "2", "-s", "some-step", "sh", "echo hello")
+			It("intercepts and runs the provided path with args", func() {
+				intercept("-b", "2", "-s", "some-step", "sh", "echo hello")
 			})
 		})
 
-		Context("when hijacking yields an error", func() {
+		Context("when intercepting yields an error", func() {
 			BeforeEach(func() {
 				resourceName = "some-resource-name"
 				containerArguments = "type=check&resource_name=some-resource-name&pipeline_name=a-pipeline"
-				hijackHandlerError = []string{"something went wrong"}
+				interceptHandlerError = []string{"something went wrong"}
 			})
 
 			It("prints it to stderr and exits 255", func() {
-				flyCmd := exec.Command(flyPath, "-t", targetName, "hijack", "--check", "a-pipeline/some-resource-name")
+				flyCmd := exec.Command(flyPath, "-t", targetName, "intercept", "--check", "a-pipeline/some-resource-name")
 
 				stdin, err := flyCmd.StdinPipe()
 				Expect(err).NotTo(HaveOccurred())
@@ -522,7 +522,7 @@ var _ = Describe("Hijacking", func() {
 				sess, err := gexec.Start(flyCmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 
-				Eventually(hijacked).Should(BeClosed())
+				Eventually(intercepted).Should(BeClosed())
 
 				_, err = fmt.Fprintf(stdin, "some stdin")
 				Expect(err).NotTo(HaveOccurred())

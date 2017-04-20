@@ -1,4 +1,4 @@
-package hijackhelpers
+package interceptorhelpers
 
 import (
 	"strings"

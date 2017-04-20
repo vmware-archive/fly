@@ -26,7 +26,7 @@ type FlyCommand struct {
 	Watch   WatchCommand   `command:"watch"   alias:"w" description:"Stream a build's output"`
 
 	Containers ContainersCommand `command:"containers" alias:"cs" description:"Print the active containers"`
-	Hijack     HijackCommand     `command:"hijack"     alias:"intercept" alias:"i" description:"Execute a command in a container"`
+	Intercept  InterceptCommand  `command:"intercept"     alias:"intercept" alias:"i" description:"Execute a command in a container"`
 
 	PauseJob   PauseJobCommand   `command:"pause-job" alias:"pj" description:"Pause a job"`
 	UnpauseJob UnpauseJobCommand `command:"unpause-job" alias:"uj" description:"Unpause a job"`

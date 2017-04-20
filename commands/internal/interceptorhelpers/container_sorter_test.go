@@ -1,11 +1,11 @@
-package hijackhelpers_test
+package interceptorhelpers_test
 
 import (
 	"fmt"
 	"sort"
 
 	"github.com/concourse/atc"
-	. "github.com/concourse/fly/commands/internal/hijackhelpers"
+	. "github.com/concourse/fly/commands/internal/interceptorhelpers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
