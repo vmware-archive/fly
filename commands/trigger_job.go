@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/concourse/atc"
 	"github.com/concourse/fly/commands/internal/flaghelpers"
 	"github.com/concourse/fly/eventstream"
 	"github.com/concourse/fly/rc"
@@ -13,12 +14,17 @@ import (
 )
 
 type TriggerJobCommand struct {
-	Job   flaghelpers.JobFlag `short:"j" long:"job" required:"true" value-name:"PIPELINE/JOB" description:"Name of a job to trigger"`
-	Watch bool                `short:"w" long:"watch" description:"Start watching the build output"`
+	Job         flaghelpers.JobFlag `short:"j" long:"job" required:"true" value-name:"PIPELINE/JOB" description:"Name of a job to trigger"`
+	BuildNumber flaghelpers.JobFlag `short:"b" long:"build" required:"false" description:"Build number for job rebuild"`
+	Watch       bool                `short:"w" long:"watch" description:"Start watching the build output"`
 }
 
 func (command *TriggerJobCommand) Execute(args []string) error {
-	pipelineName, jobName := command.Job.PipelineName, command.Job.JobName
+	var build atc.Build
+
+	pipelineName := command.Job.PipelineName
+	jobName := command.Job.JobName
+	buildNumber := command.Job.BuildNumber
 
 	target, err := rc.LoadTarget(Fly.Target)
 	if err != nil {
@@ -30,11 +36,19 @@ func (command *TriggerJobCommand) Execute(args []string) error {
 		return err
 	}
 
-	build, err := target.Team().CreateJobBuild(pipelineName, jobName)
-	if err != nil {
-		return err
+	if buildNumber != nil {
+		build, err = target.Team().Rebuild(pipelineName, jobName, buildNumber)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("started %s%s #%s %s", pipelineName, jobName, build.Name, buildNumber)
+	} else {
+		build, err = target.Team().CreateJobBuild(pipelineName, jobName)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("started %s/%s #%s\n", pipelineName, jobName, build.Name)
 	}
-	fmt.Printf("started %s/%s #%s\n", pipelineName, jobName, build.Name)
 
 	if command.Watch {
 		terminate := make(chan os.Signal, 1)
