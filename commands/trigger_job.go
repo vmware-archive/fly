@@ -37,11 +37,11 @@ func (command *TriggerJobCommand) Execute(args []string) error {
 	}
 
 	if buildNumber != nil {
-		build, err = target.Team().Rebuild(pipelineName, jobName, buildNumber)
+		build, err = target.Team().Rebuild(pipelineName, jobName, *buildNumber)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("started %s%s #%s %s", pipelineName, jobName, build.Name, buildNumber)
+		fmt.Printf("started %s%s #%s %s", pipelineName, jobName, build.Name, *buildNumber)
 	} else {
 		build, err = target.Team().CreateJobBuild(pipelineName, jobName)
 		if err != nil {
