@@ -88,7 +88,7 @@ var _ = Describe("Fly CLI", func() {
 			Expect(sess.ExitCode()).To(Equal(1))
 
 			Expect(sess.Err).To(gbytes.Say("could not reach the Concourse server called " + targetName))
-			Expect(sess.Err).To(gbytes.Say("lol"))
+			Expect(sess.Err).To(gbytes.Say("running"))
 		})
 	})
 })
