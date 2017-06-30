@@ -55,6 +55,7 @@ type FlyCommand struct {
 
 	Workers     WorkersCommand     `command:"workers" alias:"ws" description:"List the registered workers"`
 	PruneWorker PruneWorkerCommand `command:"prune-worker" alias:"pw" description:"Prune a stalled, landing, landed, or retiring worker"`
+	LandWorker  LandWorkerCommand  `command:"land-worker" alias:"lw" description:"Land a worker"`
 }
 
 var Fly FlyCommand
