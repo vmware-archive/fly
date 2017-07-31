@@ -1,4 +1,4 @@
-package hijacker_test
+package interceptor_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestHijacker(t *testing.T) {
+func TestInterceptor(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Hijacker Suite")
+	RunSpecs(t, "Interceptor Suite")
 }

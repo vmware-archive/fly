@@ -1,4 +1,4 @@
-package hijacker_test
+package interceptor_test
 
 import (
 	"crypto/tls"
@@ -15,21 +15,21 @@ import (
 	"github.com/onsi/gomega/ghttp"
 
 	"github.com/concourse/atc"
-	"github.com/concourse/fly/commands/internal/hijacker"
+	"github.com/concourse/fly/commands/internal/interceptor"
 )
 
-var _ = Describe("Hijacker", func() {
-	// Other functionality tested through the hijack command integration test.
+var _ = Describe("Interceptor", func() {
+	// Other functionality tested through the intercept command integration test.
 
 	upgrader := websocket.Upgrader{}
 
-	wasPingedHandler := func(id string, didHijack chan<- struct{}, didGetPinged chan<- struct{}) http.HandlerFunc {
+	wasPingedHandler := func(id string, didIntercept chan<- struct{}, didGetPinged chan<- struct{}) http.HandlerFunc {
 		return ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", fmt.Sprintf("/api/v1/containers/%s/hijack", id)),
 			func(w http.ResponseWriter, r *http.Request) {
 				defer GinkgoRecover()
 
-				close(didHijack)
+				close(didIntercept)
 				conn, err := upgrader.Upgrade(w, r, nil)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -55,12 +55,12 @@ var _ = Describe("Hijacker", func() {
 	var (
 		server *ghttp.Server
 
-		didHijack  chan struct{}
-		didGetPing chan struct{}
+		didIntercept chan struct{}
+		didGetPing   chan struct{}
 	)
 
 	BeforeEach(func() {
-		didHijack = make(chan struct{})
+		didIntercept = make(chan struct{})
 		didGetPing = make(chan struct{})
 
 		server = ghttp.NewServer()
@@ -72,7 +72,7 @@ var _ = Describe("Hijacker", func() {
 
 	Describe("keeping the connection alive", func() {
 		BeforeEach(func() {
-			server.AppendHandlers(wasPingedHandler("hello", didHijack, didGetPing))
+			server.AppendHandlers(wasPingedHandler("hello", didIntercept, didGetPing))
 		})
 
 		It("sends the occasional ping", func() {
@@ -86,11 +86,11 @@ var _ = Describe("Hijacker", func() {
 			stdout := gbytes.NewBuffer()
 			stderr := gbytes.NewBuffer()
 
-			h := hijacker.New(tlsConfig, reqGenerator, nil)
-			_, err := h.Hijack("hello", atc.HijackProcessSpec{
+			h := interceptor.New(tlsConfig, reqGenerator, nil)
+			_, err := h.Intercept("hello", atc.HijackProcessSpec{
 				Path: "/bin/echo",
 				Args: []string{"hello", "world"},
-			}, hijacker.ProcessIO{
+			}, interceptor.ProcessIO{
 				In:  stdin,
 				Out: stdout,
 				Err: stderr,
@@ -99,7 +99,7 @@ var _ = Describe("Hijacker", func() {
 			h.SetHeartbeatInterval(100 * time.Millisecond)
 
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(didHijack).To(BeClosed())
+			Expect(didIntercept).To(BeClosed())
 			Eventually(didGetPing).Should(BeClosed())
 		})
 	})

@@ -1,4 +1,4 @@
-package hijacker
+package interceptor
 
 import (
 	"crypto/tls"
@@ -23,7 +23,7 @@ type ProcessIO struct {
 	Err io.Writer
 }
 
-type Hijacker struct {
+type Interceptor struct {
 	tlsConfig        *tls.Config
 	requestGenerator *rata.RequestGenerator
 	token            *rc.TargetToken
@@ -31,8 +31,8 @@ type Hijacker struct {
 	interval time.Duration
 }
 
-func New(tlsConfig *tls.Config, requestGenerator *rata.RequestGenerator, token *rc.TargetToken) *Hijacker {
-	return &Hijacker{
+func New(tlsConfig *tls.Config, requestGenerator *rata.RequestGenerator, token *rc.TargetToken) *Interceptor {
+	return &Interceptor{
 		tlsConfig:        tlsConfig,
 		requestGenerator: requestGenerator,
 		token:            token,
@@ -40,18 +40,18 @@ func New(tlsConfig *tls.Config, requestGenerator *rata.RequestGenerator, token *
 	}
 }
 
-func (h *Hijacker) SetHeartbeatInterval(interval time.Duration) {
-	h.interval = interval
+func (i *Interceptor) SetHeartbeatInterval(interval time.Duration) {
+	i.interval = interval
 }
 
-func (h *Hijacker) Hijack(handle string, spec atc.HijackProcessSpec, pio ProcessIO) (int, error) {
-	url, header, err := h.hijackRequestParts(handle)
+func (i *Interceptor) Intercept(handle string, spec atc.HijackProcessSpec, pio ProcessIO) (int, error) {
+	url, header, err := i.interceptRequestParts(handle)
 	if err != nil {
 		return -1, err
 	}
 
 	dialer := websocket.Dialer{
-		TLSClientConfig: h.tlsConfig,
+		TLSClientConfig: i.tlsConfig,
 		Proxy:           http.ProxyFromEnvironment,
 	}
 	conn, _, err := dialer.Dial(url, header)
@@ -69,32 +69,32 @@ func (h *Hijacker) Hijack(handle string, spec atc.HijackProcessSpec, pio Process
 	inputs := make(chan atc.HijackInput, 1)
 	finished := make(chan struct{}, 1)
 
-	go h.monitorTTYSize(inputs, finished)
+	go i.monitorTTYSize(inputs, finished)
 	go func() {
 		io.Copy(&stdinWriter{inputs}, pio.In)
 		inputs <- atc.HijackInput{Closed: true}
 	}()
-	go h.handleInput(conn, inputs, finished)
+	go i.handleInput(conn, inputs, finished)
 
-	exitStatus := h.handleOutput(conn, pio)
+	exitStatus := i.handleOutput(conn, pio)
 
 	close(finished)
 
 	return exitStatus, nil
 }
 
-func (h *Hijacker) hijackRequestParts(handle string) (string, http.Header, error) {
-	hijackReq, _ := h.requestGenerator.CreateRequest(
+func (i *Interceptor) interceptRequestParts(handle string) (string, http.Header, error) {
+	interceptReq, _ := i.requestGenerator.CreateRequest(
 		atc.HijackContainer,
 		rata.Params{"id": handle},
 		nil,
 	)
 
-	if h.token != nil {
-		hijackReq.Header.Add("Authorization", h.token.Type+" "+h.token.Value)
+	if i.token != nil {
+		interceptReq.Header.Add("Authorization", i.token.Type+" "+i.token.Value)
 	}
 
-	wsUrl := hijackReq.URL
+	wsUrl := interceptReq.URL
 
 	var found bool
 	wsUrl.Scheme, found = websocketSchemeMap[wsUrl.Scheme]
@@ -102,10 +102,10 @@ func (h *Hijacker) hijackRequestParts(handle string) (string, http.Header, error
 		return "", nil, fmt.Errorf("unknown target scheme: %s", wsUrl.Scheme)
 	}
 
-	return wsUrl.String(), hijackReq.Header, nil
+	return wsUrl.String(), interceptReq.Header, nil
 }
 
-func (h *Hijacker) handleOutput(conn *websocket.Conn, pio ProcessIO) int {
+func (i *Interceptor) handleOutput(conn *websocket.Conn, pio ProcessIO) int {
 	var exitStatus int
 	for {
 		var output atc.HijackOutput
@@ -132,8 +132,8 @@ func (h *Hijacker) handleOutput(conn *websocket.Conn, pio ProcessIO) int {
 	return exitStatus
 }
 
-func (h *Hijacker) handleInput(conn *websocket.Conn, inputs <-chan atc.HijackInput, finished chan struct{}) {
-	ticker := time.NewTicker(h.interval)
+func (i *Interceptor) handleInput(conn *websocket.Conn, inputs <-chan atc.HijackInput, finished chan struct{}) {
+	ticker := time.NewTicker(i.interval)
 	defer ticker.Stop()
 
 	for {
@@ -155,7 +155,7 @@ func (h *Hijacker) handleInput(conn *websocket.Conn, inputs <-chan atc.HijackInp
 	}
 }
 
-func (h *Hijacker) monitorTTYSize(inputs chan<- atc.HijackInput, finished chan struct{}) {
+func (i *Interceptor) monitorTTYSize(inputs chan<- atc.HijackInput, finished chan struct{}) {
 	resized := pty.ResizeNotifier()
 
 	for {
