@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 
-	"github.com/concourse/fly/commands/internal/displayhelpers"
 	"github.com/concourse/fly/commands/internal/flaghelpers"
 	"github.com/concourse/fly/rc"
 )
@@ -41,14 +40,9 @@ func (command *RenamePipelineCommand) Execute([]string) error {
 	oldName := string(command.Pipeline)
 	newName := string(command.Name)
 
-	found, err := target.Team().RenamePipeline(oldName, newName)
+	err = target.Team().RenamePipeline(oldName, newName)
 	if err != nil {
 		return err
-	}
-
-	if !found {
-		displayhelpers.Failf("pipeline '%s' not found\n", oldName)
-		return nil
 	}
 
 	fmt.Printf("pipeline successfully renamed to %s\n", newName)
