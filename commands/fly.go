@@ -22,7 +22,7 @@ type FlyCommand struct {
 
 	Teams       TeamsCommand       `command:"teams" alias:"t" description:"List the configured teams"`
 	SetTeam     SetTeamCommand     `command:"set-team"  alias:"st" description:"Create or modify a team to have the given credentials"`
-	DestroyTeam DestroyTeamCommand `command:"destroy-team"  alias:"dt" description:"Destroy a team and delete all of its data"`
+	DestroyTeam DestroyTeamCommand `command:"destroy-team" alias:"delete-team" alias:"remove-team" alias:"dt" description:"Destroy a team and delete all of its data"`
 
 	Checklist ChecklistCommand `command:"checklist" alias:"cl" description:"Print a Checkfile of the given pipeline"`
 
@@ -37,7 +37,7 @@ type FlyCommand struct {
 	UnpauseJob UnpauseJobCommand `command:"unpause-job" alias:"uj" description:"Unpause a job"`
 
 	Pipelines        PipelinesCommand        `command:"pipelines"         alias:"ps" description:"List the configured pipelines"`
-	DestroyPipeline  DestroyPipelineCommand  `command:"destroy-pipeline"  alias:"dp" description:"Destroy a pipeline"`
+	DestroyPipeline  DestroyPipelineCommand  `command:"destroy-pipeline"  alias:"delete-pipeline" alias:"remove-pipeline" alias:"dp" description:"Destroy a pipeline"`
 	ValidatePipeline ValidatePipelineCommand `command:"validate-pipeline" alias:"vp" description:"Validate a pipeline's current configuration"`
 	GetPipeline      GetPipelineCommand      `command:"get-pipeline"      alias:"gp" description:"Get a pipeline's current configuration"`
 	SetPipeline      SetPipelineCommand      `command:"set-pipeline"      alias:"sp" description:"Create or update a pipeline's configuration"`
