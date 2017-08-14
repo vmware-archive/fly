@@ -5,7 +5,7 @@ import "github.com/concourse/fly/rc"
 type FlyCommand struct {
 	Help HelpCommand `command:"help" description:"Print this help message"`
 
-	Target  rc.TargetName  `short:"t" long:"target" description:"Concourse target name"`
+	Target  rc.TargetName  `short:"t" long:"target" env:"FLY_TARGET" description:"Concourse target name"`
 	Targets TargetsCommand `command:"targets" alias:"ts" description:"List saved targets"`
 
 	Version func() `short:"v" long:"version" description:"Print the version of Fly and exit"`
