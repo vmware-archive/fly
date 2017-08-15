@@ -14,6 +14,7 @@ import (
 	"github.com/concourse/atc"
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/go-concourse/concourse"
+	"github.com/pkg/browser"
 	"github.com/vito/go-interact/interact"
 )
 
@@ -212,10 +213,13 @@ func (command *LoginCommand) loginWith(
 
 			port := <-portChannel
 
+			urlForAcceptance := fmt.Sprintf("%s&fly_local_port=%s", method.AuthURL, port)
 			fmt.Println("navigate to the following URL in your browser:")
 			fmt.Println("")
-			fmt.Printf("    %s&fly_local_port=%s\n", method.AuthURL, port)
+			fmt.Printf("    %s\n", urlForAcceptance)
 			fmt.Println("")
+
+			browser.OpenURL(urlForAcceptance) // ignore error code, we don't care if this fails
 
 			go waitForTokenInput(stdinChannel, errorChannel, method.TokenURL, command.Insecure)
 
