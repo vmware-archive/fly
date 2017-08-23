@@ -14,17 +14,19 @@ import (
 	"github.com/concourse/atc"
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/go-concourse/concourse"
+	"github.com/pkg/browser"
 	"github.com/vito/go-interact/interact"
 )
 
 type LoginCommand struct {
-	ATCURL   string       `short:"c" long:"concourse-url" description:"Concourse URL to authenticate with"`
-	Insecure bool         `short:"k" long:"insecure" description:"Skip verification of the endpoint's SSL certificate"`
-	Username string       `short:"u" long:"username" description:"Username for basic auth"`
-	Password string       `short:"p" long:"password" description:"Password for basic auth"`
-	TeamName string       `short:"n" long:"team-name" description:"Team to authenticate with"`
-	Token    string       `long:"token" description:"Token for OAuth login"`
-	CACert   atc.PathFlag `long:"ca-cert" description:"Path to Concourse PEM-encoded CA certificate file."`
+	ATCURL    string       `short:"c" long:"concourse-url" description:"Concourse URL to authenticate with"`
+	Insecure  bool         `short:"k" long:"insecure" description:"Skip verification of the endpoint's SSL certificate"`
+	Username  string       `short:"u" long:"username" description:"Username for basic auth"`
+	Password  string       `short:"p" long:"password" description:"Password for basic auth"`
+	TeamName  string       `short:"n" long:"team-name" description:"Team to authenticate with"`
+	Token     string       `long:"token" description:"Token for OAuth login"`
+	CACert    atc.PathFlag `long:"ca-cert" description:"Path to Concourse PEM-encoded CA certificate file."`
+	NoBrowser bool         `long:"no-browser" description:"Print URL, but don't attempt launch a browser for login"`
 }
 
 func (command *LoginCommand) Execute(args []string) error {
@@ -212,10 +214,15 @@ func (command *LoginCommand) loginWith(
 
 			port := <-portChannel
 
+			urlForAcceptance := fmt.Sprintf("%s&fly_local_port=%s", method.AuthURL, port)
 			fmt.Println("navigate to the following URL in your browser:")
 			fmt.Println("")
-			fmt.Printf("    %s&fly_local_port=%s\n", method.AuthURL, port)
+			fmt.Printf("    %s\n", urlForAcceptance)
 			fmt.Println("")
+
+			if !command.NoBrowser {
+				browser.OpenURL(urlForAcceptance) // ignore error code, we don't care if this fails
+			}
 
 			go waitForTokenInput(stdinChannel, errorChannel, method.TokenURL, command.Insecure)
 
