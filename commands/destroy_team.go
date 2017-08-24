@@ -12,8 +12,8 @@ import (
 )
 
 type DestroyTeamCommand struct {
-	TeamName string `short:"n" long:"team-name" required:"true"        description:"The team to delete"`
-	SkipInteractive     bool       `long:"non-interactive"        description:"Force apply configuration"`
+	TeamName        string `short:"n" long:"team-name" required:"true"        description:"The team to delete"`
+	SkipInteractive bool   `long:"non-interactive"        description:"Force apply configuration"`
 }
 
 func (command *DestroyTeamCommand) Execute([]string) error {
