@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/concourse/fly/ui"
 	"github.com/concourse/go-concourse/concourse"
 	"github.com/fatih/color"
+	colorable "github.com/mattn/go-colorable"
 )
 
 const timeDateLayout = "2006-01-02@15:04:05-0700"
@@ -122,7 +122,7 @@ func (command *BuildsCommand) Execute([]string) error {
 		})
 	}
 
-	return table.Render(os.Stdout, Fly.PrintTableHeaders)
+	return table.Render(colorable.NewColorableStdout(), Fly.PrintTableHeaders)
 }
 
 func populateTimeCells(startTime time.Time, endTime time.Time) (ui.TableCell, ui.TableCell, ui.TableCell) {

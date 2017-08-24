@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/concourse/fly/ui"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/fatih/color"
+	colorable "github.com/mattn/go-colorable"
 )
 
 type TargetsCommand struct{}
@@ -44,7 +44,7 @@ func (command *TargetsCommand) Execute([]string) error {
 
 	sort.Sort(table.Data)
 
-	return table.Render(os.Stdout, Fly.PrintTableHeaders)
+	return table.Render(colorable.NewColorableStdout(), Fly.PrintTableHeaders)
 }
 
 func GetExpirationFromString(token *rc.TargetToken) string {

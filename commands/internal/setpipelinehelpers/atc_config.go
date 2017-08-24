@@ -3,7 +3,6 @@ package setpipelinehelpers
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 
 	yaml "gopkg.in/yaml.v2"
 
@@ -15,6 +14,7 @@ import (
 	temp "github.com/concourse/fly/template"
 	"github.com/concourse/fly/ui"
 	"github.com/concourse/go-concourse/concourse"
+	colorable "github.com/mattn/go-colorable"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/rata"
 	"github.com/vito/go-interact/interact"
@@ -276,7 +276,7 @@ func (atcConfig ATCConfig) showHelpfulMessage(created bool, updated bool) {
 }
 
 func diff(existingConfig atc.Config, newConfig atc.Config) {
-	indent := gexec.NewPrefixedWriter("  ", os.Stdout)
+	indent := gexec.NewPrefixedWriter("  ", colorable.NewColorableStdout())
 
 	groupDiffs := diffIndices(GroupIndex(existingConfig.Groups), GroupIndex(newConfig.Groups))
 	if len(groupDiffs) > 0 {

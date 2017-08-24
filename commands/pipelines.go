@@ -1,12 +1,11 @@
 package commands
 
 import (
-	"os"
-
 	"github.com/concourse/atc"
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
 	"github.com/fatih/color"
+	colorable "github.com/mattn/go-colorable"
 )
 
 type PipelinesCommand struct {
@@ -71,5 +70,5 @@ func (command *PipelinesCommand) Execute([]string) error {
 		table.Data = append(table.Data, row)
 	}
 
-	return table.Render(os.Stdout, Fly.PrintTableHeaders)
+	return table.Render(colorable.NewColorableStdout(), Fly.PrintTableHeaders)
 }

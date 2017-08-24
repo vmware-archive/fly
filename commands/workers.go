@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
 	"github.com/fatih/color"
+	colorable "github.com/mattn/go-colorable"
 )
 
 type WorkersCommand struct {
@@ -55,12 +55,13 @@ func (command *WorkersCommand) Execute([]string) error {
 		}
 	}
 
-	dst, isTTY := ui.ForTTY(os.Stdout)
+	stdout := colorable.NewColorableStdout()
+	dst, isTTY := ui.ForTTY(stdout)
 	if !isTTY {
-		return command.tableFor(append(append(runningWorkers, outdatedWorkers...), stalledWorkers...)).Render(os.Stdout, Fly.PrintTableHeaders)
+		return command.tableFor(append(append(runningWorkers, outdatedWorkers...), stalledWorkers...)).Render(stdout, Fly.PrintTableHeaders)
 	}
 
-	err = command.tableFor(runningWorkers).Render(os.Stdout, Fly.PrintTableHeaders)
+	err = command.tableFor(runningWorkers).Render(stdout, Fly.PrintTableHeaders)
 	if err != nil {
 		return err
 	}
@@ -76,7 +77,7 @@ func (command *WorkersCommand) Execute([]string) error {
 		fmt.Fprintln(dst, "the following workers need to be updated to version "+ui.Embolden(requiredWorkerVersion)+":")
 		fmt.Fprintln(dst, "")
 
-		err = command.tableFor(outdatedWorkers).Render(os.Stdout, Fly.PrintTableHeaders)
+		err = command.tableFor(outdatedWorkers).Render(stdout, Fly.PrintTableHeaders)
 		if err != nil {
 			return err
 		}
@@ -88,7 +89,7 @@ func (command *WorkersCommand) Execute([]string) error {
 		fmt.Fprintln(dst, "the following workers have not checked in recently:")
 		fmt.Fprintln(dst, "")
 
-		err = command.tableFor(stalledWorkers).Render(os.Stdout, Fly.PrintTableHeaders)
+		err = command.tableFor(stalledWorkers).Render(stdout, Fly.PrintTableHeaders)
 		if err != nil {
 			return err
 		}

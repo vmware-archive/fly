@@ -5,6 +5,8 @@ package pty
 import (
 	"io"
 	"os"
+
+	colorable "github.com/mattn/go-colorable"
 )
 
 func IsTerminal() bool {
@@ -14,7 +16,7 @@ func IsTerminal() bool {
 func OpenRawTerm() (Term, error) {
 	return noopRestoreTerm{
 		Reader: os.Stdin,
-		Writer: os.Stdout,
+		Writer: colorable.NewColorableStdout(),
 	}, nil
 }
 

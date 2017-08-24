@@ -1,13 +1,13 @@
 package commands
 
 import (
-	"os"
 	"sort"
 	"strconv"
 
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
 	"github.com/fatih/color"
+	colorable "github.com/mattn/go-colorable"
 )
 
 type ContainersCommand struct{}
@@ -60,7 +60,7 @@ func (command *ContainersCommand) Execute([]string) error {
 
 	sort.Sort(table.Data)
 
-	return table.Render(os.Stdout, Fly.PrintTableHeaders)
+	return table.Render(colorable.NewColorableStdout(), Fly.PrintTableHeaders)
 }
 
 func buildIDOrNone(id int) ui.TableCell {
