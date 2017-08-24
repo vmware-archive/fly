@@ -7,7 +7,6 @@ import (
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
 	"github.com/fatih/color"
-	colorable "github.com/mattn/go-colorable"
 )
 
 type ContainersCommand struct{}
@@ -60,7 +59,7 @@ func (command *ContainersCommand) Execute([]string) error {
 
 	sort.Sort(table.Data)
 
-	return table.Render(colorable.NewColorableStdout(), Fly.PrintTableHeaders)
+	return table.Render(color.Output, Fly.PrintTableHeaders)
 }
 
 func buildIDOrNone(id int) ui.TableCell {

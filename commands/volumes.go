@@ -12,7 +12,6 @@ import (
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
 	"github.com/fatih/color"
-	colorable "github.com/mattn/go-colorable"
 )
 
 type VolumesCommand struct {
@@ -57,7 +56,7 @@ func (command *VolumesCommand) Execute([]string) error {
 		table.Data = append(table.Data, row)
 	}
 
-	return table.Render(colorable.NewColorableStdout(), Fly.PrintTableHeaders)
+	return table.Render(color.Output, Fly.PrintTableHeaders)
 }
 
 func (command *VolumesCommand) volumeIdentifier(volume atc.Volume) string {

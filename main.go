@@ -10,8 +10,8 @@ import (
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
 	"github.com/concourse/go-concourse/concourse"
+	"github.com/fatih/color"
 	"github.com/jessevdk/go-flags"
-	colorable "github.com/mattn/go-colorable"
 
 	_ "github.com/concourse/atc/auth/genericoauth"
 	_ "github.com/concourse/atc/auth/github"
@@ -68,11 +68,11 @@ func main() {
 			fmt.Fprintln(ui.Stderr, "is the targeted Concourse running? better go catch it lol")
 		} else if err == commands.ErrShowHelpMessage {
 			helpParser.ParseArgs([]string{"-h"})
-			helpParser.WriteHelp(colorable.NewColorableStdout())
+			helpParser.WriteHelp(color.Output)
 			os.Exit(0)
 		} else if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrCommandRequired {
 			helpParser.ParseArgs([]string{"-h"})
-			helpParser.WriteHelp(colorable.NewColorableStdout())
+			helpParser.WriteHelp(color.Output)
 			os.Exit(0)
 		} else {
 			fmt.Fprintf(ui.Stderr, "error: %s\n", err)

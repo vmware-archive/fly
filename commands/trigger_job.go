@@ -10,7 +10,7 @@ import (
 	"github.com/concourse/fly/eventstream"
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
-	colorable "github.com/mattn/go-colorable"
+	"github.com/fatih/color"
 )
 
 type TriggerJobCommand struct {
@@ -56,7 +56,7 @@ func (command *TriggerJobCommand) Execute(args []string) error {
 			return err
 		}
 
-		exitCode := eventstream.Render(colorable.NewColorableStdout(), eventSource)
+		exitCode := eventstream.Render(color.Output, eventSource)
 
 		eventSource.Close()
 

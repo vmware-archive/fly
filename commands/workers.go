@@ -10,7 +10,6 @@ import (
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
 	"github.com/fatih/color"
-	colorable "github.com/mattn/go-colorable"
 )
 
 type WorkersCommand struct {
@@ -55,7 +54,7 @@ func (command *WorkersCommand) Execute([]string) error {
 		}
 	}
 
-	stdout := colorable.NewColorableStdout()
+	stdout := color.Output
 	dst, isTTY := ui.ForTTY(stdout)
 	if !isTTY {
 		return command.tableFor(append(append(runningWorkers, outdatedWorkers...), stalledWorkers...)).Render(stdout, Fly.PrintTableHeaders)

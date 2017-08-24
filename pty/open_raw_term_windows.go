@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	colorable "github.com/mattn/go-colorable"
+	"github.com/fatih/color"
 )
 
 func IsTerminal() bool {
@@ -16,7 +16,7 @@ func IsTerminal() bool {
 func OpenRawTerm() (Term, error) {
 	return noopRestoreTerm{
 		Reader: os.Stdin,
-		Writer: colorable.NewColorableStdout(),
+		Writer: color.Output,
 	}, nil
 }
 
