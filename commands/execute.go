@@ -15,6 +15,7 @@ import (
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/fly/ui"
 	"github.com/concourse/go-concourse/concourse"
+	"github.com/fatih/color"
 )
 
 type ExecuteCommand struct {
@@ -127,7 +128,7 @@ func (command *ExecuteCommand) Execute(args []string) error {
 		return err
 	}
 
-	exitCode := eventstream.Render(os.Stdout, eventSource)
+	exitCode := eventstream.Render(color.Output, eventSource)
 	eventSource.Close()
 
 	<-inputChan

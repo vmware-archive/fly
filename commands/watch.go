@@ -8,6 +8,7 @@ import (
 	"github.com/concourse/fly/commands/internal/flaghelpers"
 	"github.com/concourse/fly/eventstream"
 	"github.com/concourse/fly/rc"
+	"github.com/fatih/color"
 )
 
 type WatchCommand struct {
@@ -47,7 +48,7 @@ func (command *WatchCommand) Execute(args []string) error {
 		return err
 	}
 
-	exitCode := eventstream.Render(os.Stdout, eventSource)
+	exitCode := eventstream.Render(color.Output, eventSource)
 
 	eventSource.Close()
 

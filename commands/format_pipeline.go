@@ -10,6 +10,7 @@ import (
 
 	"github.com/concourse/atc"
 	"github.com/concourse/fly/commands/internal/displayhelpers"
+	"github.com/fatih/color"
 	yamlpatch "github.com/krishicks/yaml-patch"
 )
 
@@ -53,7 +54,7 @@ func (command *FormatPipelineCommand) Execute(args []string) error {
 				displayhelpers.FailWithErrorf("could not write formatted config to %s", err, command.Config)
 			}
 		} else {
-			_, err = fmt.Fprint(os.Stdout, string(unwrappedConfigBytes))
+			_, err = fmt.Fprint(color.Output, string(unwrappedConfigBytes))
 			if err != nil {
 				displayhelpers.FailWithErrorf("could not write formatted config to stdout", err)
 			}

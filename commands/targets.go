@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -44,7 +43,7 @@ func (command *TargetsCommand) Execute([]string) error {
 
 	sort.Sort(table.Data)
 
-	return table.Render(os.Stdout, Fly.PrintTableHeaders)
+	return table.Render(color.Output, Fly.PrintTableHeaders)
 }
 
 func GetExpirationFromString(token *rc.TargetToken) string {

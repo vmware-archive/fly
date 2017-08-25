@@ -16,6 +16,7 @@ import (
 	"github.com/concourse/fly/pty"
 	"github.com/concourse/fly/rc"
 	"github.com/concourse/go-concourse/concourse"
+	"github.com/fatih/color"
 	"github.com/tedsuo/rata"
 	"github.com/vito/go-interact/interact"
 )
@@ -141,7 +142,7 @@ func (command *HijackCommand) Execute([]string) error {
 
 		io := hijacker.ProcessIO{
 			In:  in,
-			Out: os.Stdout,
+			Out: color.Output,
 			Err: os.Stderr,
 		}
 
