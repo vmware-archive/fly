@@ -3,10 +3,12 @@ package rc
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"time"
 
@@ -16,6 +18,12 @@ import (
 	"github.com/concourse/go-concourse/concourse"
 	semisemanticversion "github.com/cppforlife/go-semi-semantic/version"
 	"golang.org/x/oauth2"
+)
+
+const (
+	// EnvVarTargetPropertiesJSON is the name of an environment variable, which, if set,
+	// provides a default set of target properties.
+	EnvVarTargetPropertiesJSON = "FLY_TARGET_PROPS"
 )
 
 type ErrVersionMismatch struct {
@@ -87,8 +95,30 @@ func newTarget(
 	}
 }
 
+// loadTargetFromEnvironment will look for target properties found
+// in environment variables and return those if found.
+func loadTargetFromEnvironment() (TargetProps, TargetName, error) {
+	var tp TargetProps
+	envProps := os.Getenv(EnvVarTargetPropertiesJSON)
+	if envProps == "" {
+		return tp, "", ErrNoTargetSpecified
+	}
+	err := json.Unmarshal([]byte(envProps), &tp)
+	if err != nil {
+		return tp, "", err
+	}
+	return tp, EnvVarTargetPropertiesJSON, nil
+}
+
+// LoadTarget will attempt to load the specified target, and will look
+// to an environment variable if not specified.
 func LoadTarget(selectedTarget TargetName, tracing bool) (Target, error) {
 	targetProps, err := selectTarget(selectedTarget)
+
+	if err == ErrNoTargetSpecified { // try environment, fallback to existing error handling
+		targetProps, selectedTarget, err = loadTargetFromEnvironment()
+	}
+
 	if err != nil {
 		return nil, err
 	}

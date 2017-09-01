@@ -1,8 +1,10 @@
 package rc_test
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -51,6 +53,7 @@ AA9WjQKZ7aKQRUzkuxCkPfAyAw7xzvjoyVGM5mKf5p/AfbdynMk2OmufTqj/ZA1k
 
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
+		os.Unsetenv(rc.EnvVarTargetPropertiesJSON)
 	})
 
 	Describe("Complete", func() {
@@ -77,6 +80,61 @@ AA9WjQKZ7aKQRUzkuxCkPfAyAw7xzvjoyVGM5mKf5p/AfbdynMk2OmufTqj/ZA1k
 	})
 
 	Describe("LoadTarget", func() {
+		Context("testing load path order", func() {
+
+			BeforeEach(func() {
+				ioutil.WriteFile(flyrc, []byte(`targets:
+  t1:
+    token:
+      type: Bearer
+      value: t1-token`), 0777)
+
+				b := &bytes.Buffer{}
+				err := json.NewEncoder(b).Encode(&rc.TargetProps{
+					TeamName: "json-team",
+					Token: &rc.TargetToken{
+						Type:  "EXTERNAL",
+						Value: "json-token",
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				err = os.Setenv(rc.EnvVarTargetPropertiesJSON, string(b.Bytes()))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("finds normal when set", func() {
+				target, err := rc.LoadTarget("t1", false)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(target.Token().Value).To(Equal("t1-token"))
+			})
+
+			It("finds JSON when not specified", func() {
+				target, err := rc.LoadTarget("", false)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(target.Token().Value).To(Equal("json-token"))
+			})
+
+			It("errors when specifed but not found", func() {
+				_, err := rc.LoadTarget("foo", false)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("errors when bad JSON", func() {
+				err := os.Setenv(rc.EnvVarTargetPropertiesJSON, "bad")
+				Expect(err).NotTo(HaveOccurred())
+				_, err = rc.LoadTarget("", false)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("errors nothing set", func() {
+				err := os.Unsetenv(rc.EnvVarTargetPropertiesJSON)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = rc.LoadTarget("", false)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
 		Context("when there is no ca-cert", func() {
 			BeforeEach(func() {
 				flyrcContents := `targets:
