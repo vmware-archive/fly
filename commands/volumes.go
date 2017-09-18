@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -57,7 +56,7 @@ func (command *VolumesCommand) Execute([]string) error {
 		table.Data = append(table.Data, row)
 	}
 
-	return table.Render(os.Stdout, Fly.PrintTableHeaders)
+	return table.Render(color.Output, Fly.PrintTableHeaders)
 }
 
 func (command *VolumesCommand) volumeIdentifier(volume atc.Volume) string {
