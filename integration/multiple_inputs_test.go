@@ -88,7 +88,7 @@ run:
 					Type: "archive",
 					Source: atc.Source{
 						"authorization": tokenString(),
-						"uri":           atcServer.URL() + "/api/v1/pipes/some-pipe-id",
+						"uri":           atcServer.URL() + "/api/v1/teams/main/pipes/some-pipe-id",
 					},
 				}),
 				planFactory.NewPlan(atc.GetPlan{
@@ -96,7 +96,7 @@ run:
 					Type: "archive",
 					Source: atc.Source{
 						"authorization": tokenString(),
-						"uri":           atcServer.URL() + "/api/v1/pipes/some-other-pipe-id",
+						"uri":           atcServer.URL() + "/api/v1/teams/main/pipes/some-other-pipe-id",
 					},
 				}),
 			}),
@@ -134,25 +134,25 @@ run:
 
 		atcServer.AppendHandlers(
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("POST", "/api/v1/pipes"),
+				ghttp.VerifyRequest("POST", "/api/v1/teams/main/pipes"),
 				ghttp.RespondWithJSONEncoded(http.StatusCreated, atc.Pipe{
 					ID:       "some-pipe-id",
-					ReadURL:  atcServer.URL() + "/api/v1/pipes/some-pipe-id",
-					WriteURL: atcServer.URL() + "/api/v1/pipes/some-pipe-id",
+					ReadURL:  atcServer.URL() + "/api/v1/teams/main/pipes/some-pipe-id",
+					WriteURL: atcServer.URL() + "/api/v1/teams/main/pipes/some-pipe-id",
 				}),
 			),
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("POST", "/api/v1/pipes"),
+				ghttp.VerifyRequest("POST", "/api/v1/teams/main/pipes"),
 				ghttp.RespondWithJSONEncoded(http.StatusCreated, atc.Pipe{
 					ID:       "some-other-pipe-id",
-					ReadURL:  atcServer.URL() + "/api/v1/pipes/some-other-pipe-id",
-					WriteURL: atcServer.URL() + "/api/v1/pipes/some-other-pipe-id",
+					ReadURL:  atcServer.URL() + "/api/v1/teams/main/pipes/some-other-pipe-id",
+					WriteURL: atcServer.URL() + "/api/v1/teams/main/pipes/some-other-pipe-id",
 				}),
 			),
 		)
-		atcServer.RouteToHandler("POST", "/api/v1/builds",
+		atcServer.RouteToHandler("POST", "/api/v1/teams/main/builds",
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("POST", "/api/v1/builds"),
+				ghttp.VerifyRequest("POST", "/api/v1/teams/main/builds"),
 				VerifyPlan(expectedPlan),
 				func(w http.ResponseWriter, r *http.Request) {
 					http.SetCookie(w, &http.Cookie{
@@ -208,9 +208,9 @@ run:
 				},
 			),
 		)
-		atcServer.RouteToHandler("PUT", "/api/v1/pipes/some-pipe-id",
+		atcServer.RouteToHandler("PUT", "/api/v1/teams/main/pipes/some-pipe-id",
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("PUT", "/api/v1/pipes/some-pipe-id"),
+				ghttp.VerifyRequest("PUT", "/api/v1/teams/main/pipes/some-pipe-id"),
 				func(w http.ResponseWriter, req *http.Request) {
 					close(uploading)
 
@@ -232,9 +232,9 @@ run:
 				ghttp.RespondWith(200, ""),
 			),
 		)
-		atcServer.RouteToHandler("PUT", "/api/v1/pipes/some-other-pipe-id",
+		atcServer.RouteToHandler("PUT", "/api/v1/teams/main/pipes/some-other-pipe-id",
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("PUT", "/api/v1/pipes/some-other-pipe-id"),
+				ghttp.VerifyRequest("PUT", "/api/v1/teams/main/pipes/some-other-pipe-id"),
 				func(w http.ResponseWriter, req *http.Request) {
 					close(uploadingTwo)
 

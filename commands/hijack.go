@@ -170,9 +170,9 @@ func (command *HijackCommand) Execute([]string) error {
 			Err: os.Stderr,
 		}
 
-		h := hijacker.New(target, reqGenerator)
+		h := hijacker.New(target.TLSConfig(), reqGenerator, target.Token())
 
-		return h.Hijack(chosenContainer.ID, spec, io)
+		return h.Hijack(target.Team().Name(), chosenContainer.ID, spec, io)
 	}()
 
 	if err != nil {

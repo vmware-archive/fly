@@ -90,7 +90,7 @@ run:
 					Type: "archive",
 					Source: atc.Source{
 						"authorization": tokenString(),
-						"uri":           atcServer.URL() + "/api/v1/pipes/some-pipe-id",
+						"uri":           atcServer.URL() + "/api/v1/teams/main/pipes/some-pipe-id",
 					},
 				}),
 			}),
@@ -129,19 +129,19 @@ run:
 		uploading := make(chan struct{})
 		uploadingBits = uploading
 
-		atcServer.RouteToHandler("POST", "/api/v1/pipes",
+		atcServer.RouteToHandler("POST", "/api/v1/teams/main/pipes",
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("POST", "/api/v1/pipes"),
+				ghttp.VerifyRequest("POST", "/api/v1/teams/main/pipes"),
 				ghttp.RespondWithJSONEncoded(http.StatusCreated, atc.Pipe{
 					ID:       "some-pipe-id",
-					ReadURL:  atcServer.URL() + "/api/v1/pipes/some-pipe-id",
-					WriteURL: atcServer.URL() + "/api/v1/pipes/some-pipe-id",
+					ReadURL:  atcServer.URL() + "/api/v1/teams/main/pipes/some-pipe-id",
+					WriteURL: atcServer.URL() + "/api/v1/teams/main/pipes/some-pipe-id",
 				}),
 			),
 		)
-		atcServer.RouteToHandler("POST", "/api/v1/builds",
+		atcServer.RouteToHandler("POST", "/api/v1/teams/main/builds",
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("POST", "/api/v1/builds"),
+				ghttp.VerifyRequest("POST", "/api/v1/teams/main/builds"),
 				VerifyPlan(expectedPlan),
 				func(w http.ResponseWriter, r *http.Request) {
 					http.SetCookie(w, &http.Cookie{
@@ -197,9 +197,9 @@ run:
 				},
 			),
 		)
-		atcServer.RouteToHandler("PUT", "/api/v1/pipes/some-pipe-id",
+		atcServer.RouteToHandler("PUT", "/api/v1/teams/main/pipes/some-pipe-id",
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("PUT", "/api/v1/pipes/some-pipe-id"),
+				ghttp.VerifyRequest("PUT", "/api/v1/teams/main/pipes/some-pipe-id"),
 				func(w http.ResponseWriter, req *http.Request) {
 					close(uploading)
 
@@ -331,9 +331,9 @@ run: {}
 
 					uploading := make(chan struct{})
 					uploadingBits = uploading
-					atcServer.RouteToHandler("PUT", "/api/v1/pipes/some-pipe-id",
+					atcServer.RouteToHandler("PUT", "/api/v1/teams/main/pipes/some-pipe-id",
 						ghttp.CombineHandlers(
-							ghttp.VerifyRequest("PUT", "/api/v1/pipes/some-pipe-id"),
+							ghttp.VerifyRequest("PUT", "/api/v1/teams/main/pipes/some-pipe-id"),
 							func(w http.ResponseWriter, req *http.Request) {
 								close(uploading)
 
@@ -382,9 +382,9 @@ run: {}
 				It("uploading with everything", func() {
 					uploading := make(chan struct{})
 					uploadingBits = uploading
-					atcServer.RouteToHandler("PUT", "/api/v1/pipes/some-pipe-id",
+					atcServer.RouteToHandler("PUT", "/api/v1/teams/main/pipes/some-pipe-id",
 						ghttp.CombineHandlers(
-							ghttp.VerifyRequest("PUT", "/api/v1/pipes/some-pipe-id"),
+							ghttp.VerifyRequest("PUT", "/api/v1/teams/main/pipes/some-pipe-id"),
 							func(w http.ResponseWriter, req *http.Request) {
 								close(uploading)
 
@@ -847,14 +847,14 @@ run:
 				rc.TargetName(targetName),
 				atcServer.URL(),
 				true,
-				"some-team",
+				"main",
 				&token,
 				"",
 			)
 			Expect(err).ToNot(HaveOccurred())
 
 			(*(*expectedPlan.Do)[0].Aggregate)[0].Get.Source = atc.Source{
-				"uri":                 atcServer.URL() + "/api/v1/pipes/some-pipe-id",
+				"uri":                 atcServer.URL() + "/api/v1/teams/main/pipes/some-pipe-id",
 				"authorization":       tokenString(),
 				"skip_ssl_validation": true,
 			}
