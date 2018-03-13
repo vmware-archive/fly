@@ -17,6 +17,7 @@ type Output struct {
 
 func DetermineOutputs(
 	client concourse.Client,
+	team concourse.Team,
 	taskOutputs []atc.TaskOutputConfig,
 	outputMappings []flaghelpers.OutputPairFlag,
 ) ([]Output, error) {
@@ -41,7 +42,7 @@ func DetermineOutputs(
 			return nil, err
 		}
 
-		pipe, err := client.CreatePipe()
+		pipe, err := team.CreatePipe()
 		if err != nil {
 			return nil, err
 		}

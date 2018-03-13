@@ -27,17 +27,20 @@ func DetermineInputs(
 	inputMappings []flaghelpers.InputPairFlag,
 	inputsFrom flaghelpers.JobFlag,
 ) ([]Input, error) {
+	fmt.Println("====================== check")
 	err := CheckForUnknownInputMappings(inputMappings, taskInputs)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("====================== type")
 	err = CheckForInputType(inputMappings)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(inputMappings) == 0 && inputsFrom.PipelineName == "" && inputsFrom.JobName == "" {
+		fmt.Println("====================== empty")
 		wd, err := os.Getwd()
 		if err != nil {
 			return nil, err
@@ -49,11 +52,13 @@ func DetermineInputs(
 		})
 	}
 
-	inputsFromLocal, err := GenerateLocalInputs(client, inputMappings)
+	fmt.Println("====================== generate")
+	inputsFromLocal, err := GenerateLocalInputs(team, inputMappings)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("====================== inputsfromjob")
 	inputsFromJob, err := FetchInputsFromJob(team, inputsFrom)
 	if err != nil {
 		return nil, err
@@ -113,14 +118,14 @@ func TaskInputsContainsName(inputs []atc.TaskInputConfig, name string) bool {
 	return false
 }
 
-func GenerateLocalInputs(client concourse.Client, inputMappings []flaghelpers.InputPairFlag) (map[string]Input, error) {
+func GenerateLocalInputs(team concourse.Team, inputMappings []flaghelpers.InputPairFlag) (map[string]Input, error) {
 	kvMap := map[string]Input{}
 
 	for _, i := range inputMappings {
 		inputName := i.Name
 		absPath := i.Path
 
-		pipe, err := client.CreatePipe()
+		pipe, err := team.CreatePipe()
 		if err != nil {
 			return nil, err
 		}

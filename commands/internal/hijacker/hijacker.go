@@ -27,16 +27,17 @@ type Hijacker struct {
 	tlsConfig        *tls.Config
 	requestGenerator *rata.RequestGenerator
 	token            *rc.TargetToken
-
-	interval time.Duration
+	teamName         string
+	interval         time.Duration
 }
 
-func New(tlsConfig *tls.Config, requestGenerator *rata.RequestGenerator, token *rc.TargetToken) *Hijacker {
+func New(target rc.Target, requestGenerator *rata.RequestGenerator) *Hijacker {
 	return &Hijacker{
-		tlsConfig:        tlsConfig,
+		tlsConfig:        target.TLSConfig(),
 		requestGenerator: requestGenerator,
-		token:            token,
+		token:            target.Token(),
 		interval:         10 * time.Second,
+		teamName:         target.Team().Name(),
 	}
 }
 
@@ -84,11 +85,15 @@ func (h *Hijacker) Hijack(handle string, spec atc.HijackProcessSpec, pio Process
 }
 
 func (h *Hijacker) hijackRequestParts(handle string) (string, http.Header, error) {
-	hijackReq, _ := h.requestGenerator.CreateRequest(
+	hijackReq, err := h.requestGenerator.CreateRequest(
 		atc.HijackContainer,
-		rata.Params{"id": handle},
+		rata.Params{"id": handle, "team_name": h.teamName},
 		nil,
 	)
+
+	if err != nil {
+		panic(err)
+	}
 
 	if h.token != nil {
 		hijackReq.Header.Add("Authorization", h.token.Type+" "+h.token.Value)

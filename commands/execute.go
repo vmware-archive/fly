@@ -61,6 +61,7 @@ func (command *ExecuteCommand) Execute(args []string) error {
 
 	outputs, err := executehelpers.DetermineOutputs(
 		client,
+		target.Team(),
 		taskConfig.Outputs,
 		command.Outputs,
 	)
@@ -101,7 +102,7 @@ func (command *ExecuteCommand) Execute(args []string) error {
 		}
 
 	} else {
-		build, err = client.CreateBuild(plan)
+		build, err = target.Team().CreateBuild(plan)
 		if err != nil {
 			return err
 		}
