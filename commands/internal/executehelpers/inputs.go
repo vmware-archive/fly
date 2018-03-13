@@ -27,20 +27,17 @@ func DetermineInputs(
 	inputMappings []flaghelpers.InputPairFlag,
 	inputsFrom flaghelpers.JobFlag,
 ) ([]Input, error) {
-	fmt.Println("====================== check")
 	err := CheckForUnknownInputMappings(inputMappings, taskInputs)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("====================== type")
 	err = CheckForInputType(inputMappings)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(inputMappings) == 0 && inputsFrom.PipelineName == "" && inputsFrom.JobName == "" {
-		fmt.Println("====================== empty")
 		wd, err := os.Getwd()
 		if err != nil {
 			return nil, err
@@ -52,13 +49,11 @@ func DetermineInputs(
 		})
 	}
 
-	fmt.Println("====================== generate")
 	inputsFromLocal, err := GenerateLocalInputs(team, inputMappings)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("====================== inputsfromjob")
 	inputsFromJob, err := FetchInputsFromJob(team, inputsFrom)
 	if err != nil {
 		return nil, err
