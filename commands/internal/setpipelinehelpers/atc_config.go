@@ -83,8 +83,6 @@ func (atcConfig ATCConfig) Validate(
 		displayhelpers.Failf("configuration invalid")
 	}
 
-	fmt.Println("looks good")
-
 	return nil
 }
 

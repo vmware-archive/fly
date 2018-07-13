@@ -386,7 +386,7 @@ func defaultHttpClient(token *TargetToken, insecure bool, caCertPool *x509.CertP
 }
 
 func loadCACertPool(caCert string) (cert *x509.CertPool, err error) {
-	if caCert == "" {
+	if caCert == "" && runtime.GOOS != "darwin" {
 		return nil, nil
 	}
 
@@ -404,10 +404,13 @@ func loadCACertPool(caCert string) (cert *x509.CertPool, err error) {
 		pool = x509.NewCertPool()
 	}
 
-	ok := pool.AppendCertsFromPEM([]byte(caCert))
-	if !ok {
-		return nil, errors.New("CA Cert not valid")
+	if caCert != "" {
+		ok := pool.AppendCertsFromPEM([]byte(caCert))
+		if !ok {
+			return nil, errors.New("CA Cert not valid")
+		}
 	}
+
 	return pool, nil
 }
 
