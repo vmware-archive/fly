@@ -51,6 +51,7 @@ type FlyCommand struct {
 	CheckResource    CheckResourceCommand    `command:"check-resource"    alias:"cr" description:"Check a resource"`
 	PauseResource    PauseResourceCommand    `command:"pause-resource"    alias:"pr" description:"Pause a resource"`
 	UnpauseResource  UnpauseResourceCommand  `command:"unpause-resource"  alias:"ur" description:"Unpause a resource"`
+	Resources        ResourcesCommand        `command:"resources" alias:"rs" description:"Print the active resources"`
 
 	Builds     BuildsCommand     `command:"builds"      alias:"bs" description:"List builds data"`
 	AbortBuild AbortBuildCommand `command:"abort-build" alias:"ab" description:"Abort a build"`
