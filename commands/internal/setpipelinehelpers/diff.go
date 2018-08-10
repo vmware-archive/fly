@@ -161,8 +161,6 @@ func renderDiff(to io.Writer, a, b string) {
 			fmt.Fprintf(indent, "%s %s\n", ansi.Color("+", "green"), ansi.Color(text, "green"))
 		case difflib.LeftOnly:
 			fmt.Fprintf(indent, "%s %s\n", ansi.Color("-", "red"), ansi.Color(text, "red"))
-		case difflib.Common:
-			fmt.Fprintf(to, "%s\n", text)
 		}
 	}
 }
