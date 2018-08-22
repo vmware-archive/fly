@@ -51,6 +51,7 @@ type FlyCommand struct {
 	CheckResource    CheckResourceCommand    `command:"check-resource"    alias:"cr" description:"Check a resource"`
 	PauseResource    PauseResourceCommand    `command:"pause-resource"    alias:"pr" description:"Pause a resource"`
 	UnpauseResource  UnpauseResourceCommand  `command:"unpause-resource"  alias:"ur" description:"Unpause a resource"`
+	Resources        ResourcesCommand        `command:"resources" alias:"rs" description:"Print the active resources"`
 
 	ClearTaskCache ClearTaskCacheCommand `command:"clear-task-cache" alias:"ctc" description:"Clears cache from a task container"`
 
