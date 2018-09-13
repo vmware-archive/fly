@@ -23,12 +23,12 @@ import (
 )
 
 type HijackCommand struct {
-	Job            flaghelpers.JobFlag      `short:"j" long:"job"   value-name:"PIPELINE/JOB"   description:"Name of a job to hijack"`
-	Check          flaghelpers.ResourceFlag `short:"c" long:"check" value-name:"PIPELINE/CHECK" description:"Name of a resource's checking container to hijack"`
-	Url            string                   `short:"u" long:"url"                               description:"URL for the build, job, or check container to hijack"`
-	Build          string                   `short:"b" long:"build"                             description:"Build number within the job, or global build ID"`
-	StepName       string                   `short:"s" long:"step"                              description:"Name of step to hijack (e.g. build, unit, resource name)"`
-	Attempt        string                   `short:"a" long:"attempt" value-name:"N[,N,...]"    description:"Attempt number of step to hijack."`
+	Job            flaghelpers.JobFlag `short:"j" long:"job"   value-name:"PIPELINE/JOB"   description:"Name of a job to hijack"`
+	Handle         string              `short:"h" long:"handle"														 description:"Handle of the container to hijack"`
+	Url            string              `short:"u" long:"url"                               description:"URL for the build, job, or check container to hijack"`
+	Build          string              `short:"b" long:"build"                             description:"Build number within the job, or global build ID"`
+	StepName       string              `short:"s" long:"step"                              description:"Name of step to hijack (e.g. build, unit, resource name)"`
+	Attempt        string              `short:"a" long:"attempt" value-name:"N[,N,...]"    description:"Attempt number of step to hijack."`
 	PositionalArgs struct {
 		Command []string `positional-arg-name:"command" description:"The command to run in the container (default: bash)"`
 	} `positional-args:"yes"`
@@ -63,70 +63,77 @@ func (command *HijackCommand) Execute([]string) error {
 		return err
 	}
 
-	fingerprint, err := command.getContainerFingerprint(target)
-	if err != nil {
-		return err
-	}
-
-	containers, err := command.getContainerIDs(target, fingerprint)
-	if err != nil {
-		return err
-	}
-
-	hijackableContainers := make([]atc.Container, 0)
-
-	for _, container := range containers {
-		if container.State == db.ContainerStateCreated || container.State == db.ContainerStateFailed {
-			hijackableContainers = append(hijackableContainers, container)
-		}
-	}
-
 	var chosenContainer atc.Container
-	if len(hijackableContainers) == 0 {
-		displayhelpers.Failf("no containers matched your search parameters!\n\nthey may have expired if your build hasn't recently finished.")
-	} else if len(hijackableContainers) > 1 {
-		var choices []interact.Choice
-		for _, container := range hijackableContainers {
-			var infos []string
-
-			if container.BuildID != 0 {
-				if container.JobName != "" {
-					infos = append(infos, fmt.Sprintf("build #%s", container.BuildName))
-				} else {
-					infos = append(infos, fmt.Sprintf("build id: %d", container.BuildID))
-				}
-			}
-
-			if container.StepName != "" {
-				infos = append(infos, fmt.Sprintf("step: %s", container.StepName))
-			}
-
-			if container.ResourceName != "" {
-				infos = append(infos, fmt.Sprintf("resource: %s", container.ResourceName))
-			}
-
-			infos = append(infos, fmt.Sprintf("type: %s", container.Type))
-
-			if container.Attempt != "" {
-				infos = append(infos, fmt.Sprintf("attempt: %s", container.Attempt))
-			}
-
-			choices = append(choices, interact.Choice{
-				Display: strings.Join(infos, ", "),
-				Value:   container,
-			})
-		}
-
-		err = interact.NewInteraction("choose a container", choices...).Resolve(&chosenContainer)
-		if err == io.EOF {
-			return nil
-		}
-
+	if command.Handle != "" {
+		chosenContainer, err = target.Team().Container(command.Handle)
 		if err != nil {
 			return err
 		}
 	} else {
-		chosenContainer = containers[0]
+		fingerprint, err := command.getContainerFingerprint(target)
+		if err != nil {
+			return err
+		}
+
+		containers, err := command.getContainerIDs(target, fingerprint)
+		if err != nil {
+			return err
+		}
+
+		hijackableContainers := make([]atc.Container, 0)
+
+		for _, container := range containers {
+			if container.State == db.ContainerStateCreated || container.State == db.ContainerStateFailed {
+				hijackableContainers = append(hijackableContainers, container)
+			}
+		}
+
+		if len(hijackableContainers) == 0 {
+			displayhelpers.Failf("no containers matched your search parameters!\n\nthey may have expired if your build hasn't recently finished.")
+		} else if len(hijackableContainers) > 1 {
+			var choices []interact.Choice
+			for _, container := range hijackableContainers {
+				var infos []string
+
+				if container.BuildID != 0 {
+					if container.JobName != "" {
+						infos = append(infos, fmt.Sprintf("build #%s", container.BuildName))
+					} else {
+						infos = append(infos, fmt.Sprintf("build id: %d", container.BuildID))
+					}
+				}
+
+				if container.StepName != "" {
+					infos = append(infos, fmt.Sprintf("step: %s", container.StepName))
+				}
+
+				if container.ResourceName != "" {
+					infos = append(infos, fmt.Sprintf("resource: %s", container.ResourceName))
+				}
+
+				infos = append(infos, fmt.Sprintf("type: %s", container.Type))
+
+				if container.Attempt != "" {
+					infos = append(infos, fmt.Sprintf("attempt: %s", container.Attempt))
+				}
+
+				choices = append(choices, interact.Choice{
+					Display: strings.Join(infos, ", "),
+					Value:   container,
+				})
+			}
+
+			err = interact.NewInteraction("choose a container", choices...).Resolve(&chosenContainer)
+			if err == io.EOF {
+				return nil
+			}
+
+			if err != nil {
+				return err
+			}
+		} else {
+			chosenContainer = containers[0]
+		}
 	}
 
 	privileged := true
@@ -253,10 +260,7 @@ func (command *HijackCommand) getContainerFingerprint(target rc.Target) (*contai
 		}
 	}
 
-	pipelineName := command.Check.PipelineName
-	if command.Job.PipelineName != "" {
-		pipelineName = command.Job.PipelineName
-	}
+	pipelineName := command.Job.PipelineName
 
 	for _, field := range []struct {
 		fp  *string
@@ -266,7 +270,7 @@ func (command *HijackCommand) getContainerFingerprint(target rc.Target) (*contai
 		{fp: &fingerprint.buildNameOrID, cmd: command.Build},
 		{fp: &fingerprint.stepName, cmd: command.StepName},
 		{fp: &fingerprint.jobName, cmd: command.Job.JobName},
-		{fp: &fingerprint.checkName, cmd: command.Check.ResourceName},
+		{fp: &fingerprint.handle, cmd: command.Handle},
 		{fp: &fingerprint.attempt, cmd: command.Attempt},
 	} {
 		if field.cmd != "" {
@@ -346,22 +350,6 @@ func (locator stepContainerLocator) locate(fingerprint *containerFingerprint) (m
 	return reqValues, nil
 }
 
-type checkContainerLocator struct{}
-
-func (locator checkContainerLocator) locate(fingerprint *containerFingerprint) (map[string]string, error) {
-	reqValues := map[string]string{}
-
-	reqValues["type"] = "check"
-	if fingerprint.checkName != "" {
-		reqValues["resource_name"] = fingerprint.checkName
-	}
-	if fingerprint.pipelineName != "" {
-		reqValues["pipeline_name"] = fingerprint.pipelineName
-	}
-
-	return reqValues, nil
-}
-
 type containerFingerprint struct {
 	pipelineName  string
 	jobName       string
@@ -369,19 +357,17 @@ type containerFingerprint struct {
 
 	stepName string
 
-	checkName string
-	attempt   string
+	handle  string
+	attempt string
 }
 
 func locateContainer(client concourse.Client, fingerprint *containerFingerprint) (map[string]string, error) {
 	var locator containerLocator
 
-	if fingerprint.checkName == "" {
+	if fingerprint.handle == "" {
 		locator = stepContainerLocator{
 			client: client,
 		}
-	} else {
-		locator = checkContainerLocator{}
 	}
 
 	return locator.locate(fingerprint)
